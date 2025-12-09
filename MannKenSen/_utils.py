@@ -43,6 +43,29 @@ def _get_season_func(season_type, period):
 
     return season_func
 
+def _get_cycle_identifier(dt_series, season_type):
+    """
+    Returns a numeric series that uniquely identifies the larger time cycle
+    for each timestamp, used for aggregation.
+    """
+    if season_type in ['month', 'quarter', 'year', 'day_of_year', 'week_of_year']:
+        # The cycle is the year
+        return dt_series.year.to_numpy()
+
+    elif season_type == 'day_of_week':
+        # The cycle is the week, identified by year and week number
+        iso_cal = dt_series.isocalendar()
+        return (iso_cal.year * 100 + iso_cal.week).to_numpy()
+
+    elif season_type in ['hour', 'minute', 'second']:
+        # The cycle is the day, identified by the Unix timestamp of the day's start
+        # Convert to int64 (nanoseconds) and then to float seconds
+        return (dt_series.normalize().astype(np.int64) / 10**9)
+
+    else:
+        # Default to year if the concept of a cycle is not obvious
+        return dt_series.year.to_numpy()
+
 # Helper functions from the original pymannkendall.py
 def __preprocessing(x):
     x = np.asarray(x)

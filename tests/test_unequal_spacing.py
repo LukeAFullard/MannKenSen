@@ -28,6 +28,45 @@ def test_original_test_unequal_spacing(unequal_linear_data):
     assert result.Cd < 0.05
 
 
+def test_seasonal_test_weekly_aggregation():
+    # 5 weeks of data, with two observations on each Monday
+    t = pd.to_datetime(np.array([
+        '2023-01-02 10:00', '2023-01-02 14:00', # Week 1, Monday
+        '2023-01-09 10:00', '2023-01-09 14:00', # Week 2, Monday
+        '2023-01-16 10:00', '2023-01-16 14:00', # Week 3, Monday
+        '2023-01-23 10:00', '2023-01-23 14:00', # Week 4, Monday
+        '2023-01-30 10:00', '2023-01-30 14:00', # Week 5, Monday
+    ]))
+    x = np.array([10, 100, 20, 200, 30, 300, 40, 400, 50, 500])
+
+    # Aggregation should find the median of each Monday's pair
+    result = seasonal_test(x, t, period=7, agg_method='median', season_type='day_of_week')
+
+    assert result.trend == 'increasing'
+    assert result.h
+    # s for the single aggregated Monday series [55, 110, 165, 220, 275] is 10
+    assert result.s == 10
+
+
+def test_seasonal_test_hourly_aggregation():
+    # 5 days of data, with two observations at 10:00
+    t = pd.to_datetime(np.array([
+        '2023-01-01 10:00', '2023-01-01 10:30',
+        '2023-01-02 10:00', '2023-01-02 10:30',
+        '2023-01-03 10:00', '2023-01-03 10:30',
+        '2023-01-04 10:00', '2023-01-04 10:30',
+        '2023-01-05 10:00', '2023-01-05 10:30',
+    ]))
+    x = np.array([10, 100, 20, 200, 30, 300, 40, 400, 50, 500])
+
+    result = seasonal_test(x, t, period=24, agg_method='median', season_type='hour')
+
+    assert result.trend == 'increasing'
+    assert result.h
+    # s for the single aggregated 10:00 series [55, 110, 165, 220, 275] is 10
+    assert result.s == 10
+
+
 def test_seasonal_test_day_of_week_seasonality():
     # 10 weeks of daily data
     t = pd.to_datetime(pd.date_range(start='2023-01-01', periods=70, freq='D'))
