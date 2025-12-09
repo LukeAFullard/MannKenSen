@@ -6,16 +6,49 @@ and Sen's slope estimator to handle unequally spaced time series data.
 from __future__ import division
 import datetime
 import numpy as np
-from scipy.stats import norm, rankdata
-from collections import namedtuple
+from scipy.stats import norm
 
+def _is_datetime_like(x):
+    """Checks if an array is datetime-like."""
+    return np.issubdtype(x.dtype, np.datetime64) or \
+           (x.dtype == 'O' and len(x) > 0 and hasattr(x[0], 'year'))
+
+def _get_season_func(season_type, period):
+    """
+    Returns a function to extract seasonal data based on the season_type,
+    and validates the period.
+    """
+    season_map = {
+        'year': (1, lambda dt: dt.year),
+        'month': (12, lambda dt: dt.month),
+        'day_of_week': (7, lambda dt: dt.dayofweek),
+        'quarter': (4, lambda dt: dt.quarter),
+        'hour': (24, lambda dt: dt.hour),
+        'week_of_year': ([52, 53], lambda dt: dt.isocalendar().week),
+        'day_of_year': (None, lambda dt: dt.dayofyear),
+        'minute': (60, lambda dt: dt.minute),
+        'second': (60, lambda dt: dt.second),
+    }
+    if season_type not in season_map:
+        raise ValueError(f"Unknown season_type: '{season_type}'. Must be one of {list(season_map.keys())}")
+
+    expected_period, season_func = season_map[season_type]
+
+    if expected_period is not None:
+        if isinstance(expected_period, list):
+            if period not in expected_period:
+                raise ValueError(f"For season_type='{season_type}', period must be one of {expected_period}.")
+        elif period != expected_period:
+            raise ValueError(f"For season_type='{season_type}', period must be {expected_period}.")
+
+    return season_func
 
 # Helper functions from the original pymannkendall.py
 def __preprocessing(x):
     x = np.asarray(x)
 
     # Convert datetime objects to numeric timestamps if necessary
-    if np.issubdtype(x.dtype, np.datetime64):
+    if _is_datetime_like(x):
         x = x.astype('datetime64[s]').astype(float)
     elif x.dtype == 'O' and len(x) > 0:
         if isinstance(x[0], datetime.datetime):

@@ -7,7 +7,8 @@ import numpy as np
 import pandas as pd
 from ._utils import (__preprocessing, __missing_values_analysis, __mk_score,
                    __variance_s, __z_score, __p_value,
-                   __sens_estimator_unequal_spacing, __confidence_intervals, __mk_probability)
+                   __sens_estimator_unequal_spacing, __confidence_intervals,
+                   __mk_probability, _get_season_func, _is_datetime_like)
 
 def seasonal_test(x_old, t_old, period=12, alpha=0.05, agg_method='none', season_type='month'):
     """
@@ -22,7 +23,8 @@ def seasonal_test(x_old, t_old, period=12, alpha=0.05, agg_method='none', season
                     'median': uses the median of values and times for each season-year.
                     'middle': uses the observation closest to the middle of the time period.
         season_type: For datetime inputs, specifies the type of seasonality.
-                     'month' (default), 'day_of_week', 'quarter', 'hour'.
+                     'year', 'month', 'day_of_week', 'quarter', 'hour', 'week_of_year',
+                     'day_of_year', 'minute', 'second'.
     Output:
         trend, h, p, z, Tau, s, var_s, slope, intercept, lower_ci, upper_ci, C, Cd
     """
@@ -31,23 +33,10 @@ def seasonal_test(x_old, t_old, period=12, alpha=0.05, agg_method='none', season
     x_raw = np.asarray(x_old)
     t_raw = np.asarray(t_old)
 
-    is_datetime = np.issubdtype(t_raw.dtype, np.datetime64) or \
-                  (t_raw.dtype == 'O' and len(t_raw) > 0 and hasattr(t_raw[0], 'year'))
+    is_datetime = _is_datetime_like(t_raw)
 
-    # --- Validation for datetime inputs ---
     if is_datetime:
-        season_map = {
-            'month': (12, lambda dt: dt.month),
-            'day_of_week': (7, lambda dt: dt.dayofweek),
-            'quarter': (4, lambda dt: dt.quarter),
-            'hour': (24, lambda dt: dt.hour)
-        }
-        if season_type not in season_map:
-            raise ValueError(f"Unknown season_type: '{season_type}'. Must be one of {list(season_map.keys())}")
-
-        expected_period, season_func = season_map[season_type]
-        if period != expected_period:
-            raise ValueError(f"For season_type='{season_type}', period must be {expected_period}.")
+        season_func = _get_season_func(season_type, period)
 
     mask = ~np.isnan(x_raw)
     x, t = x_raw[mask], t_raw[mask]
@@ -60,7 +49,7 @@ def seasonal_test(x_old, t_old, period=12, alpha=0.05, agg_method='none', season
         if is_datetime:
             t_pd = pd.to_datetime(t)
             years_agg = t_pd.year
-            seasons_agg = season_func(t_pd)
+            seasons_agg = season_func(t_pd) if season_type != 'year' else np.ones(len(t_pd))
         else:
             t_numeric_agg, _ = __preprocessing(t)
             years_agg = np.floor((t_numeric_agg - 1) / period)
@@ -90,12 +79,16 @@ def seasonal_test(x_old, t_old, period=12, alpha=0.05, agg_method='none', season
 
     # --- Trend Analysis ---
     t_numeric, _ = __preprocessing(t)
-    if is_datetime:
+    if is_datetime and season_type != 'year':
         seasons = season_func(pd.to_datetime(t))
         season_range = np.unique(seasons)
-    else:
+    elif not is_datetime:
         seasons = (np.floor(t_numeric - 1) % period).astype(int)
         season_range = range(int(period))
+    else: # is_datetime and season_type == 'year'
+        seasons = np.ones(len(t))
+        season_range = [1]
+
 
     s, var_s, denom = 0, 0, 0
     all_slopes = []
