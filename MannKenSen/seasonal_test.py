@@ -52,8 +52,10 @@ def seasonal_test(x_old, t_old, period=12, alpha=0.05, agg_method='none', season
             seasons_agg = season_func(t_pd) if season_type != 'year' else np.ones(len(t_pd))
         else:
             t_numeric_agg, _ = __preprocessing(t)
-            years_agg = np.floor((t_numeric_agg - 1) / period)
-            seasons_agg = np.floor(t_numeric_agg - 1) % period
+            # Normalize the time vector to handle arbitrary start times
+            t_normalized = t_numeric_agg - t_numeric_agg[0]
+            years_agg = np.floor(t_normalized / period)
+            seasons_agg = np.floor(t_normalized % period)
 
         unique_year_seasons = np.unique(np.column_stack((years_agg, seasons_agg)), axis=0)
         agg_x, agg_t = [], []
@@ -83,7 +85,9 @@ def seasonal_test(x_old, t_old, period=12, alpha=0.05, agg_method='none', season
         seasons = season_func(pd.to_datetime(t))
         season_range = np.unique(seasons)
     elif not is_datetime:
-        seasons = (np.floor(t_numeric - 1) % period).astype(int)
+        # Normalize for season calculation as well
+        t_normalized_season = t_numeric - t_numeric[0]
+        seasons = (np.floor(t_normalized_season) % period).astype(int)
         season_range = range(int(period))
     else: # is_datetime and season_type == 'year'
         seasons = np.ones(len(t))

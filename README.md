@@ -44,8 +44,8 @@ This function performs the seasonal Mann-Kendall test on unequally spaced time s
 
 **Input:**
 - `x`: A vector of data.
-- `t`: A vector of timestamps. Can be a numeric vector or a datetime-like array (e.g., `numpy.datetime64` or a list of Python `datetime` objects).
-- `period`: The seasonal period. For numeric `t`, this defines the cycle length (e.g., 12 for monthly data if `t` is in months). For datetime `t`, this must match the expected period of the `season_type`.
+- `t`: A vector of timestamps. Can be a numeric vector or a datetime-like array.
+- `period`: The seasonal period. For numeric `t`, this defines the cycle length. Cycles are calculated relative to the start of the time series (e.g., for `t=[1990, 1991, 1992]` and `period=1`, each year is a cycle). For datetime `t`, this must match the expected period of the `season_type`.
 - `alpha`: The significance level (default is 0.05).
 - `agg_method`: The method for aggregating multiple data points within the same season-year.
   - `'none'` (default): Performs the analysis on all individual data points.

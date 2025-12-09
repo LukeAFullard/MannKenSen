@@ -39,8 +39,10 @@ def plot_seasonal_distribution(x_old, t_old, period=12, season_type='month', sav
     if is_datetime:
         seasons = season_func(pd.to_datetime(t))
     else:
-        t_numeric, _ = __preprocessing(t)
-        seasons = (np.floor(t_numeric - 1) % period).astype(int)
+        t_numeric = np.asarray(t, dtype=np.float64)
+        # Normalize to start from 0 for consistent seasonal calculation
+        t_normalized = t_numeric - t_numeric[0]
+        seasons = (np.floor(t_normalized) % period).astype(int)
 
     df = pd.DataFrame({'Value': x, 'Season': seasons})
 

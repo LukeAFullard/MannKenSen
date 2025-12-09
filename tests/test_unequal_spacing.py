@@ -79,6 +79,18 @@ def test_seasonal_test_week_of_year():
     assert result.s > 0
 
 
+def test_seasonal_test_numeric_year_aggregation():
+    # 5 years of data to ensure statistical significance
+    t = np.array([1990.1, 1990.9, 1991.1, 1991.9, 1992.1, 1992.9, 1993.1, 1993.9, 1994.1, 1994.9])
+    x = np.array([10, 100, 20, 200, 30, 300, 40, 400, 50, 500])
+
+    result = seasonal_test(x, t, period=1, agg_method='median')
+
+    assert result.trend == 'increasing'
+    assert result.h
+    assert result.s == 10
+
+
 def test_seasonal_test_year_seasonality():
     t = pd.to_datetime(pd.date_range(start='2020-01-01', periods=10, freq='YE'))
     x = np.arange(10, 110, 10) # [10, 20, ..., 100]
