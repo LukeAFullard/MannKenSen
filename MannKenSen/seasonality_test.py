@@ -6,7 +6,7 @@ from collections import namedtuple
 import numpy as np
 import pandas as pd
 from scipy.stats import kruskal
-from ._utils import __preprocessing
+from ._utils import __preprocessing, _get_season_func, _is_datetime_like
 
 def seasonality_test(x_old, t_old, period=12, alpha=0.05, season_type='month'):
     """
@@ -31,20 +31,10 @@ def seasonality_test(x_old, t_old, period=12, alpha=0.05, season_type='month'):
     x_raw = np.asarray(x_old)
     t_raw = np.asarray(t_old)
 
-    is_datetime = np.issubdtype(t_raw.dtype, np.datetime64) or \
-                  (t_raw.dtype == 'O' and len(t_raw) > 0 and hasattr(t_raw[0], 'year'))
+    is_datetime = _is_datetime_like(t_raw)
 
     if is_datetime:
-        season_map = {
-            'year': (1, lambda dt: dt.year), 'month': (12, lambda dt: dt.month),
-            'day_of_week': (7, lambda dt: dt.dayofweek), 'quarter': (4, lambda dt: dt.quarter),
-            'hour': (24, lambda dt: dt.hour), 'week_of_year': ([52, 53], lambda dt: dt.isocalendar().week),
-            'day_of_year': (None, lambda dt: dt.dayofyear), 'minute': (60, lambda dt: dt.minute),
-            'second': (60, lambda dt: dt.second)
-        }
-        if season_type not in season_map:
-            raise ValueError(f"Unknown season_type: '{season_type}'.")
-        _, season_func = season_map[season_type]
+        season_func = _get_season_func(season_type, period)
 
     mask = ~np.isnan(x_raw)
     x, t = x_raw[mask], t_raw[mask]
@@ -64,6 +54,10 @@ def seasonality_test(x_old, t_old, period=12, alpha=0.05, season_type='month'):
         return res(np.nan, np.nan, False)
 
     seasonal_data = [x[seasons == s] for s in unique_seasons]
+
+    # The test requires at least 5 observations in each group
+    if any(len(group) < 5 for group in seasonal_data):
+        return res(np.nan, np.nan, False)
 
     h_statistic, p_value = kruskal(*seasonal_data)
 

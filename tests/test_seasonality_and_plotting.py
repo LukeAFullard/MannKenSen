@@ -7,14 +7,16 @@ from MannKenSen.plotting import plot_seasonal_distribution
 
 @pytest.fixture
 def seasonal_data():
-    t = pd.to_datetime(pd.date_range(start='2020-01-01', periods=48, freq='ME'))
-    x = 10 * np.sin(2 * np.pi * t.month / 12) + 50 + np.random.rand(48)
+    # 5 years of monthly data to ensure at least 5 points per season
+    t = pd.to_datetime(pd.date_range(start='2020-01-01', periods=60, freq='ME'))
+    x = 10 * np.sin(2 * np.pi * t.month / 12) + 50 + np.random.rand(60)
     return x, t
 
 @pytest.fixture
 def non_seasonal_data():
-    t = pd.to_datetime(pd.date_range(start='2020-01-01', periods=48, freq='ME'))
-    x = np.linspace(0, 10, 48) + np.random.rand(48)
+    # 5 years of monthly data
+    t = pd.to_datetime(pd.date_range(start='2020-01-01', periods=60, freq='ME'))
+    x = np.linspace(0, 10, 60) + np.random.rand(60)
     return x, t
 
 def test_seasonality_test_detects_seasonality(seasonal_data):

@@ -7,7 +7,8 @@ import numpy as np
 import pandas as pd
 from ._utils import (__preprocessing, __missing_values_analysis, __mk_score,
                    __variance_s, __z_score, __p_value,
-                   __sens_estimator_unequal_spacing, __confidence_intervals, __mk_probability)
+                   __sens_estimator_unequal_spacing, __confidence_intervals,
+                   __mk_probability, _get_season_func, _is_datetime_like)
 
 def seasonal_test(x_old, t_old, period=12, alpha=0.05, agg_method='none', season_type='month'):
     """
@@ -32,32 +33,10 @@ def seasonal_test(x_old, t_old, period=12, alpha=0.05, agg_method='none', season
     x_raw = np.asarray(x_old)
     t_raw = np.asarray(t_old)
 
-    is_datetime = np.issubdtype(t_raw.dtype, np.datetime64) or \
-                  (t_raw.dtype == 'O' and len(t_raw) > 0 and hasattr(t_raw[0], 'year'))
+    is_datetime = _is_datetime_like(t_raw)
 
-    # --- Validation and season function selection for datetime inputs ---
     if is_datetime:
-        season_map = {
-            'year': (1, lambda dt: dt.year),
-            'month': (12, lambda dt: dt.month),
-            'day_of_week': (7, lambda dt: dt.dayofweek),
-            'quarter': (4, lambda dt: dt.quarter),
-            'hour': (24, lambda dt: dt.hour),
-            'week_of_year': ([52, 53], lambda dt: dt.isocalendar().week),
-            'day_of_year': (None, lambda dt: dt.dayofyear), # Period is data-dependent
-            'minute': (60, lambda dt: dt.minute),
-            'second': (60, lambda dt: dt.second),
-        }
-        if season_type not in season_map:
-            raise ValueError(f"Unknown season_type: '{season_type}'. Must be one of {list(season_map.keys())}")
-
-        expected_period, season_func = season_map[season_type]
-        if expected_period is not None:
-            if isinstance(expected_period, list):
-                if period not in expected_period:
-                    raise ValueError(f"For season_type='{season_type}', period must be one of {expected_period}.")
-            elif period != expected_period:
-                raise ValueError(f"For season_type='{season_type}', period must be {expected_period}.")
+        season_func = _get_season_func(season_type, period)
 
     mask = ~np.isnan(x_raw)
     x, t = x_raw[mask], t_raw[mask]
@@ -70,7 +49,7 @@ def seasonal_test(x_old, t_old, period=12, alpha=0.05, agg_method='none', season
         if is_datetime:
             t_pd = pd.to_datetime(t)
             years_agg = t_pd.year
-            seasons_agg = season_func(t_pd) if season_type != 'year' else np.ones(len(t_pd)) # No seasons for year
+            seasons_agg = season_func(t_pd) if season_type != 'year' else np.ones(len(t_pd))
         else:
             t_numeric_agg, _ = __preprocessing(t)
             years_agg = np.floor((t_numeric_agg - 1) / period)

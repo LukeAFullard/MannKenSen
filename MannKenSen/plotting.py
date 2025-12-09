@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from ._utils import __preprocessing
+from ._utils import __preprocessing, _get_season_func, _is_datetime_like
 
 def plot_seasonal_distribution(x_old, t_old, period=12, season_type='month', save_path='seasonal_distribution.png'):
     """
@@ -24,20 +24,10 @@ def plot_seasonal_distribution(x_old, t_old, period=12, season_type='month', sav
     x_raw = np.asarray(x_old)
     t_raw = np.asarray(t_old)
 
-    is_datetime = np.issubdtype(t_raw.dtype, np.datetime64) or \
-                  (t_raw.dtype == 'O' and len(t_raw) > 0 and hasattr(t_raw[0], 'year'))
+    is_datetime = _is_datetime_like(t_raw)
 
     if is_datetime:
-        season_map = {
-            'year': (lambda dt: dt.year), 'month': (lambda dt: dt.month),
-            'day_of_week': (lambda dt: dt.dayofweek), 'quarter': (lambda dt: dt.quarter),
-            'hour': (lambda dt: dt.hour), 'week_of_year': (lambda dt: dt.isocalendar().week),
-            'day_of_year': (lambda dt: dt.dayofyear), 'minute': (lambda dt: dt.minute),
-            'second': (lambda dt: dt.second)
-        }
-        if season_type not in season_map:
-            raise ValueError(f"Unknown season_type: '{season_type}'.")
-        season_func = season_map[season_type]
+        season_func = _get_season_func(season_type, period)
 
     mask = ~np.isnan(x_raw)
     x, t = x_raw[mask], t_raw[mask]
