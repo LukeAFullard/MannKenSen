@@ -79,6 +79,18 @@ def test_seasonal_test_week_of_year():
     assert result.s > 0
 
 
+def test_seasonal_test_year_seasonality():
+    t = pd.to_datetime(pd.date_range(start='2020-01-01', periods=10, freq='YE'))
+    x = np.arange(10, 110, 10) # [10, 20, ..., 100]
+
+    # Using 'year' should be equivalent to a non-seasonal trend test
+    result = seasonal_test(x, t, period=1, season_type='year')
+
+    assert result.trend == 'increasing'
+    assert result.h
+    assert result.s == 45
+
+
 def test_seasonal_test_datetime_aggregation():
     # 5 years of data with two observations in Jan
     t = np.array([

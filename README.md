@@ -2,9 +2,15 @@
 
 This project provides a Python implementation of the Mann-Kendall test for trend analysis. The original code was sourced from the `pyMannKendall` package and has been modified to support unequally spaced time series data. The `pyMannKendall` code will be deleted once we are production ready.
 
+## Background and Acknowledgements
+
+The statistical methods used in this package, particularly for handling unequally spaced time series and seasonal aggregation, are inspired by the LWP-TRENDS R package developed by Land & Water People in New Zealand. Their robust implementation has served as an excellent reference for this work.
+
+For more information on the original R functions, please see: [LWPTrends_v2502.zip](https://landwaterpeople.co.nz/wp-content/uploads/2025/03/LWPTrends_v2502.zip)
+
 ## MannKenSen Package
 
-The `MannKenSen` package is a new addition to this project that provides modified versions of the Mann-Kendall test and Sen's slope estimator to handle unequally spaced time series data.
+The `MannKenSen` package provides modified versions of the Mann-Kendall test and Sen's slope estimator to handle unequally spaced time series data.
 
 ### `original_test(x, t, alpha=0.05)`
 
@@ -52,16 +58,18 @@ A named tuple with the same fields as `original_test`.
 
 #### `season_type` Options for Datetime Inputs
 
-| `season_type`    | Description                               | Expected `period` |
-|------------------|-------------------------------------------|-------------------|
-| `'month'`        | Month of the year (1-12)                  | 12                |
-| `'day_of_week'`  | Day of the week (0=Mon, 6=Sun)            | 7                 |
-| `'quarter'`      | Quarter of the year (1-4)                 | 4                 |
-| `'hour'`         | Hour of the day (0-23)                    | 24                |
-| `'week_of_year'` | ISO week of the year (1-53)               | 52 or 53          |
-| `'day_of_year'`  | Day of the year (1-366)                   | (no validation)   |
-| `'minute'`       | Minute of the hour (0-59)                 | 60                |
-| `'second'`       | Second of the minute (0-59)               | 60                |
+| `season_type`    | Description                               | Expected `period` | How it Groups Data |
+|------------------|-------------------------------------------|-------------------|--------------------|
+| `'year'`         | Annual Trend (non-seasonal)               | 1                 | Groups all data into a single season. |
+| `'month'`        | Month of the year                         | 12                | Groups data by the calendar month (e.g., all Januaries). |
+| `'day_of_week'`  | Day of the week                           | 7                 | Groups data by the day of the week (e.g., all Mondays). |
+| `'quarter'`      | Quarter of the year                       | 4                 | Groups data by the calendar quarter (e.g., all Q1s). |
+| `'hour'`         | Hour of the day                           | 24                | Groups data by the hour of the day (e.g., all 9 AMs). |
+| `'week_of_year'` | ISO week of the year                      | 52 or 53          | Groups data by the ISO week number. |
+| `'day_of_year'`  | Day of the year                           | (no validation)   | Groups data by the day of the year (1-366). |
+| `'minute'`       | Minute of the hour                        | 60                | Groups data by the minute of the hour. |
+| `'second'`       | Second of the minute                      | 60                | Groups data by the second of the minute. |
+
 
 **Example: Weekly Seasonality**
 ```python
