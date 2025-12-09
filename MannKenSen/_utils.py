@@ -4,6 +4,7 @@ and Sen's slope estimator to handle unequally spaced time series data.
 """
 
 from __future__ import division
+import datetime
 import numpy as np
 from scipy.stats import norm, rankdata
 from collections import namedtuple
@@ -11,7 +12,17 @@ from collections import namedtuple
 
 # Helper functions from the original pymannkendall.py
 def __preprocessing(x):
-    x = np.asarray(x).astype(float)
+    x = np.asarray(x)
+
+    # Convert datetime objects to numeric timestamps if necessary
+    if np.issubdtype(x.dtype, np.datetime64):
+        x = x.astype('datetime64[s]').astype(float)
+    elif x.dtype == 'O' and len(x) > 0:
+        if isinstance(x[0], datetime.datetime):
+            x = np.array([val.timestamp() for val in x])
+
+    x = x.astype(float)
+
     if x.ndim == 2:
         (n, c) = x.shape
         if c == 1:
@@ -51,6 +62,14 @@ def __p_value(z, alpha):
     h = abs(z) > norm.ppf(1 - alpha / 2)
     trend = 'decreasing' if z < 0 and h else 'increasing' if z > 0 and h else 'no trend'
     return p, h, trend
+
+def __mk_probability(p, s):
+    """
+    Computes the Mann-Kendall probability.
+    """
+    C = 1 - p / 2
+    Cd = C if s <= 0 else p / 2
+    return C, Cd
 
 def __sens_estimator_unequal_spacing(x, t):
     """
