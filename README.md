@@ -44,8 +44,8 @@ This function performs the seasonal Mann-Kendall test on unequally spaced time s
 
 **Input:**
 - `x`: A vector of data.
-- `t`: A vector of timestamps. Can be a numeric vector or a datetime-like array (e.g., `numpy.datetime64` or a list of Python `datetime` objects).
-- `period`: The seasonal period. For numeric `t`, this defines the cycle length (e.g., 12 for monthly data if `t` is in months). For datetime `t`, this must match the expected period of the `season_type`.
+- `t`: A vector of timestamps. Can be a numeric vector or a datetime-like array.
+- `period`: The seasonal period. For numeric `t`, this defines the cycle length. Cycles are calculated relative to the start of the time series (e.g., for `t=[1990, 1991, 1992]` and `period=1`, each year is a cycle). For datetime `t`, this must match the expected period of the `season_type`.
 - `alpha`: The significance level (default is 0.05).
 - `agg_method`: The method for aggregating multiple data points within the same season-year.
   - `'none'` (default): Performs the analysis on all individual data points.
@@ -55,6 +55,24 @@ This function performs the seasonal Mann-Kendall test on unequally spaced time s
 
 **Output:**
 A named tuple with the same fields as `original_test`.
+
+#### Understanding the `period` Parameter
+
+The `period` parameter is crucial for correct seasonal analysis, and its meaning depends on the type of the time vector `t` you provide.
+
+*   **For Datetime-like Inputs:**
+    When `t` is a vector of `datetime` or `numpy.datetime64` objects, the `period` parameter serves as a **validation mechanism** for the chosen `season_type`. For instance, if `season_type` is `'month'`, the package expects `period` to be 12. If a different value is provided, it will raise a `ValueError`. This ensures that the seasonal analysis aligns with the calendar definition of the seasonality. For `season_type`s with variable periods, like `'week_of_year'`, the `period` can be either 52 or 53.
+
+*   **For Numeric Inputs:**
+    When `t` is a numeric vector (e.g., years, days since an event), the `period` defines the **length of a full seasonal cycle**. The interpretation of the `period` is entirely dependent on the units of your time vector.
+    - If `t` is in **days**, a `period` of `365` or `365.25` would represent a yearly seasonal cycle.
+    - If `t` is in **months**, a `period` of `12` would represent a yearly cycle.
+    - If `t` is in **years** and you want to test for a biennial cycle, a `period` of `2` would be appropriate.
+
+*   **Caveats and Limitations:**
+    - The package **cannot infer the units** of a numeric time vector.
+    - It is the **user's responsibility** to provide a `period` that is meaningful and correctly corresponds to the units of their numeric `t` vector.
+    - Incorrectly specifying the `period` for numeric data will lead to a mathematically valid but contextually incorrect analysis.
 
 #### `season_type` Options for Datetime Inputs
 

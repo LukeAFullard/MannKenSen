@@ -8,7 +8,8 @@ import pandas as pd
 from ._utils import (__preprocessing, __missing_values_analysis, __mk_score,
                    __variance_s, __z_score, __p_value,
                    __sens_estimator_unequal_spacing, __confidence_intervals,
-                   __mk_probability, _get_season_func, _is_datetime_like)
+                   __mk_probability, _get_season_func, _is_datetime_like,
+                   _get_cycle_identifier)
 
 def seasonal_test(x_old, t_old, period=12, alpha=0.05, agg_method='none', season_type='month'):
     """
@@ -48,18 +49,20 @@ def seasonal_test(x_old, t_old, period=12, alpha=0.05, agg_method='none', season
     if agg_method != 'none':
         if is_datetime:
             t_pd = pd.to_datetime(t)
-            years_agg = t_pd.year
+            cycles_agg = _get_cycle_identifier(t_pd, season_type)
             seasons_agg = season_func(t_pd) if season_type != 'year' else np.ones(len(t_pd))
         else:
             t_numeric_agg, _ = __preprocessing(t)
-            years_agg = np.floor((t_numeric_agg - 1) / period)
-            seasons_agg = np.floor(t_numeric_agg - 1) % period
+            # Normalize the time vector to handle arbitrary start times
+            t_normalized = t_numeric_agg - t_numeric_agg[0]
+            cycles_agg = np.floor(t_normalized / period)
+            seasons_agg = np.floor(t_normalized % period)
 
-        unique_year_seasons = np.unique(np.column_stack((years_agg, seasons_agg)), axis=0)
+        unique_cycle_seasons = np.unique(np.column_stack((cycles_agg, seasons_agg)), axis=0)
         agg_x, agg_t = [], []
 
-        for year, season in unique_year_seasons:
-            group_mask = (years_agg == year) & (seasons_agg == season)
+        for cycle, season in unique_cycle_seasons:
+            group_mask = (cycles_agg == cycle) & (seasons_agg == season)
             group_x, group_t = x[group_mask], t[group_mask]
 
             if len(group_x) > 1:
@@ -83,7 +86,9 @@ def seasonal_test(x_old, t_old, period=12, alpha=0.05, agg_method='none', season
         seasons = season_func(pd.to_datetime(t))
         season_range = np.unique(seasons)
     elif not is_datetime:
-        seasons = (np.floor(t_numeric - 1) % period).astype(int)
+        # Normalize for season calculation as well
+        t_normalized_season = t_numeric - t_numeric[0]
+        seasons = (np.floor(t_normalized_season) % period).astype(int)
         season_range = range(int(period))
     else: # is_datetime and season_type == 'year'
         seasons = np.ones(len(t))
