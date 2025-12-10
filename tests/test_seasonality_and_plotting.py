@@ -73,3 +73,73 @@ def test_trend_plotting():
     seasonal_test(x, t, plot_path=seasonal_plot_path)
     assert os.path.exists(seasonal_plot_path)
     os.remove(seasonal_plot_path)
+
+# New tests for biweekly seasonality
+def test_biweekly_seasonality():
+    """
+    Tests the biweekly seasonality functionality.
+    """
+    # Create a dataset with a known biweekly pattern
+    t = pd.to_datetime(pd.date_range(start='2020-01-01', periods=104, freq='W'))
+    x = np.array([i % 2 for i in range(104)]) # Alternating values every week, creating a biweekly pattern
+
+    result = seasonal_test(x, t, season_type='biweekly', period=26)
+    assert result.trend == 'no trend'
+
+def test_biweekly_seasonality_53_week_year():
+    """
+    Tests the biweekly seasonality with a 53-week year.
+    """
+    t = pd.to_datetime(pd.date_range(start='2015-01-01', end='2015-12-31', freq='D'))
+    x = np.arange(len(t))
+
+    result = seasonal_test(x, t, season_type='biweekly', period=27)
+    assert result.trend == 'increasing'
+
+# Edge case tests based on code review feedback
+def test_day_of_year_seasonality_leap_year():
+    """
+    Tests 'day_of_year' seasonality, ensuring it handles leap years correctly.
+    The 'period' for day_of_year is dynamic and should not be specified.
+    """
+    # Data spans a leap year (2020) and a common year (2021)
+    t = pd.to_datetime(pd.date_range(start='2020-01-01', end='2021-12-31', freq='D'))
+    x = np.arange(len(t))
+
+    # The function should dynamically determine the number of seasons
+    result = seasonal_test(x, t, season_type='day_of_year')
+    assert result.trend == 'increasing'
+
+def test_week_of_year_seasonality_53_week_year():
+    """
+    Tests 'week_of_year' seasonality for a year with 53 weeks.
+    """
+    # 2015 was a 53-week year
+    t = pd.to_datetime(pd.date_range(start='2015-01-01', end='2015-12-31', freq='D'))
+    x = np.arange(len(t))
+
+    result = seasonal_test(x, t, season_type='week_of_year', period=53)
+    assert result.trend == 'increasing'
+
+
+# Parameterized test for robust season types
+@pytest.mark.parametrize("season_type, period, freq, n_periods", [
+    ('year', 1, 'YE', 20),
+    ('month', 12, 'ME', 60),
+    ('day_of_week', 7, 'D', 365 * 2),
+    ('quarter', 4, 'QE', 40),
+    ('hour', 24, 'h', 168 * 2),
+    ('biweekly', 26, 'W', 104 * 2),
+    ('minute', 60, 'min', 1440 * 2),
+    ('second', 60, 's', 3600 * 2),
+])
+def test_general_season_types(season_type, period, freq, n_periods):
+    """
+    Tests the more straightforward season types in the season_map.
+    Edge cases like 'day_of_year' and 'week_of_year' are tested separately.
+    """
+    t = pd.to_datetime(pd.date_range(start='2020-01-01', periods=n_periods, freq=freq))
+    x = np.arange(len(t))
+
+    result = seasonal_test(x, t, season_type=season_type, period=period)
+    assert result.trend == 'increasing'

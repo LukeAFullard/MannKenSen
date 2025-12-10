@@ -95,6 +95,7 @@ def _get_season_func(season_type, period):
         'quarter': (4, lambda dt: get_dt_prop(dt, 'quarter')),
         'hour': (24, lambda dt: get_dt_prop(dt, 'hour')),
         'week_of_year': ([52, 53], lambda dt: get_dt_prop(dt, 'isocalendar')().week),
+        'biweekly': ([26, 27], lambda dt: (get_dt_prop(dt, 'isocalendar')().week - 1) // 2),
         'day_of_year': (None, lambda dt: get_dt_prop(dt, 'dayofyear')),
         'minute': (60, lambda dt: get_dt_prop(dt, 'minute')),
         'second': (60, lambda dt: get_dt_prop(dt, 'second')),
@@ -120,7 +121,7 @@ def _get_cycle_identifier(dt_series, season_type):
     """
     dt_accessor = dt_series.dt if isinstance(dt_series, pd.Series) else dt_series
 
-    if season_type in ['month', 'quarter', 'year', 'day_of_year', 'week_of_year']:
+    if season_type in ['month', 'quarter', 'year', 'day_of_year', 'week_of_year', 'biweekly']:
         # The cycle is the year
         return dt_accessor.year.to_numpy()
 
