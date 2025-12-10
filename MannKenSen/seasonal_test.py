@@ -96,7 +96,7 @@ def seasonal_test(x, t, period=12, alpha=0.05, agg_method='none', season_type='m
                     median_val = group['value'].median()
                     new_row = {
                         'value': median_val,
-                        't_original': pd.to_datetime(group['t_original']).to_series().median() if is_datetime else np.median(group['t_original']),
+                        't_original': group['t_original'].median() if is_datetime else np.median(group['t_original']),
                         't': np.median(group['t']),
                         'censored': median_val <= group[group['censored']]['value'].max() if group['censored'].any() else False,
                         'cen_type': group['cen_type'].mode()[0]

@@ -85,16 +85,19 @@ def _get_season_func(season_type, period):
     Returns a function to extract seasonal data based on the season_type,
     and validates the period.
     """
+    def get_dt_prop(dt, prop):
+        return getattr(dt.dt, prop) if isinstance(dt, pd.Series) else getattr(dt, prop)
+
     season_map = {
-        'year': (1, lambda dt: dt.year),
-        'month': (12, lambda dt: dt.month),
-        'day_of_week': (7, lambda dt: dt.dayofweek),
-        'quarter': (4, lambda dt: dt.quarter),
-        'hour': (24, lambda dt: dt.hour),
-        'week_of_year': ([52, 53], lambda dt: dt.isocalendar().week),
-        'day_of_year': (None, lambda dt: dt.dayofyear),
-        'minute': (60, lambda dt: dt.minute),
-        'second': (60, lambda dt: dt.second),
+        'year': (1, lambda dt: get_dt_prop(dt, 'year')),
+        'month': (12, lambda dt: get_dt_prop(dt, 'month')),
+        'day_of_week': (7, lambda dt: get_dt_prop(dt, 'dayofweek')),
+        'quarter': (4, lambda dt: get_dt_prop(dt, 'quarter')),
+        'hour': (24, lambda dt: get_dt_prop(dt, 'hour')),
+        'week_of_year': ([52, 53], lambda dt: get_dt_prop(dt, 'isocalendar')().week),
+        'day_of_year': (None, lambda dt: get_dt_prop(dt, 'dayofyear')),
+        'minute': (60, lambda dt: get_dt_prop(dt, 'minute')),
+        'second': (60, lambda dt: get_dt_prop(dt, 'second')),
     }
     if season_type not in season_map:
         raise ValueError(f"Unknown season_type: '{season_type}'. Must be one of {list(season_map.keys())}")
@@ -115,23 +118,25 @@ def _get_cycle_identifier(dt_series, season_type):
     Returns a numeric series that uniquely identifies the larger time cycle
     for each timestamp, used for aggregation.
     """
+    dt_accessor = dt_series.dt if isinstance(dt_series, pd.Series) else dt_series
+
     if season_type in ['month', 'quarter', 'year', 'day_of_year', 'week_of_year']:
         # The cycle is the year
-        return dt_series.year.to_numpy()
+        return dt_accessor.year.to_numpy()
 
     elif season_type == 'day_of_week':
         # The cycle is the week, identified by year and week number
-        iso_cal = dt_series.isocalendar()
+        iso_cal = dt_accessor.isocalendar()
         return (iso_cal.year * 100 + iso_cal.week).to_numpy()
 
     elif season_type in ['hour', 'minute', 'second']:
         # The cycle is the day, identified by the Unix timestamp of the day's start
         # Convert to int64 (nanoseconds) and then to float seconds
-        return (dt_series.normalize().astype(np.int64) / 10**9)
+        return (dt_accessor.normalize().astype(np.int64) / 10**9)
 
     else:
         # Default to year if the concept of a cycle is not obvious
-        return dt_series.year.to_numpy()
+        return dt_accessor.year.to_numpy()
 
 def _rle_lengths(a):
     """Calculates the lengths of runs of equal values in an array."""
