@@ -56,3 +56,70 @@ def plot_seasonal_distribution(x_old, t_old, period=12, season_type='month', sav
     plt.close()
 
     return save_path
+
+def plot_trend(data, results, save_path):
+    """
+    Generates and saves a plot of the data with the calculated trend line.
+
+    Input:
+        data (pd.DataFrame): The DataFrame containing the data, including 'value',
+                             'censored', 't', and optionally 't_original'.
+        results (namedtuple): The results from original_test or seasonal_test.
+        save_path (str): The file path to save the plot.
+    """
+    if save_path is None:
+        return
+
+    plt.figure(figsize=(10, 6))
+
+    # Determine x-axis values (datetime or numeric)
+    is_datetime = 't_original' in data.columns and _is_datetime_like(data['t_original'].values)
+    x_axis = pd.to_datetime(data['t_original']) if is_datetime else data['t']
+
+    # Scatter plot for censored and non-censored data
+    censored_data = data[data['censored']]
+    non_censored_data = data[~data['censored']]
+
+    plt.scatter(x_axis[non_censored_data.index], non_censored_data['value'],
+                color='blue', label='Non-censored', marker='o')
+    plt.scatter(x_axis[censored_data.index], censored_data['value'],
+                color='red', label='Censored', marker='x')
+
+    # Trend line and confidence intervals
+    if pd.notna(results.slope):
+        t_numeric = data['t'].values
+        t_min, t_max = t_numeric.min(), t_numeric.max()
+
+        # Trend line
+        trend_line = results.slope * np.array([t_min, t_max]) + results.intercept
+
+        # Confidence interval lines
+        ymed = data['value'].median()
+        tmed = data['t'].median()
+        intercept_lower = ymed - results.lower_ci * tmed
+        intercept_upper = ymed - results.upper_ci * tmed
+
+        lower_line = results.lower_ci * np.array([t_min, t_max]) + intercept_lower
+        upper_line = results.upper_ci * np.array([t_min, t_max]) + intercept_upper
+
+        x_line = pd.to_datetime([t_min, t_max], unit='s') if is_datetime else [t_min, t_max]
+
+        plt.plot(x_line, trend_line, color='black', linestyle='--', label="Sen's Slope")
+        plt.fill_between(x_line, lower_line, upper_line, color='gray', alpha=0.3, label='95% CI')
+
+    # Add statistics text box
+    stats_text = (f"Trend: {results.trend}\n"
+                  f"Slope: {results.slope:.4f}\n"
+                  f"P-value: {results.p:.4f}")
+    plt.gca().text(0.05, 0.95, stats_text, transform=plt.gca().transAxes,
+                   fontsize=10, verticalalignment='top',
+                   bbox=dict(boxstyle='round,pad=0.5', fc='yellow', alpha=0.5))
+
+    plt.title('Trend Analysis')
+    plt.xlabel('Time')
+    plt.ylabel('Value')
+    plt.legend()
+    plt.grid(True)
+
+    plt.savefig(save_path)
+    plt.close()

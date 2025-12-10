@@ -4,6 +4,7 @@ import pandas as pd
 import os
 from MannKenSen.seasonality_test import seasonality_test
 from MannKenSen.plotting import plot_seasonal_distribution
+from MannKenSen import original_test, seasonal_test
 
 @pytest.fixture
 def seasonal_data():
@@ -46,3 +47,29 @@ def test_plot_seasonal_distribution(seasonal_data):
 
     # Clean up the created file
     os.remove(save_path)
+
+def test_trend_plotting():
+    """
+    Tests that the plotting functionality in original_test and
+    seasonal_test creates a file.
+    """
+    t = pd.to_datetime(pd.date_range(start='2020-01-01', periods=20, freq='YE'))
+    x = np.arange(20)
+
+    # Test original_test plotting
+    original_plot_path = "original_test_plot.png"
+    if os.path.exists(original_plot_path):
+        os.remove(original_plot_path)
+
+    original_test(x, t, plot_path=original_plot_path)
+    assert os.path.exists(original_plot_path)
+    os.remove(original_plot_path)
+
+    # Test seasonal_test plotting
+    seasonal_plot_path = "seasonal_test_plot.png"
+    if os.path.exists(seasonal_plot_path):
+        os.remove(seasonal_plot_path)
+
+    seasonal_test(x, t, plot_path=seasonal_plot_path)
+    assert os.path.exists(seasonal_plot_path)
+    os.remove(seasonal_plot_path)
