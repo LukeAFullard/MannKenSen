@@ -354,7 +354,7 @@ def __sens_estimator_unequal_spacing(x, t):
     return x_diff[valid_mask] / t_diff[valid_mask]
 
 
-def _sens_estimator_censored(x, t, cen_type):
+def _sens_estimator_censored(x, t, cen_type, lt_mult=0.5, gt_mult=1.1):
     """
     Computes Sen's slope for censored, unequally spaced data.
     This is a Python translation of the GetInterObservationSlopes logic
@@ -381,9 +381,9 @@ def _sens_estimator_censored(x, t, cen_type):
     slopes_raw = x_diff_raw / t_diff
 
     # 2. Modify values for final slope calculation (as per R script)
-    x_mod = x.copy()
-    x_mod[cen_type == 'lt'] *= 0.5
-    x_mod[cen_type == 'gt'] *= 1.1
+    x_mod = x.copy().astype(float)
+    x_mod[cen_type == 'lt'] *= lt_mult
+    x_mod[cen_type == 'gt'] *= gt_mult
     x_diff_mod = x_mod[j_indices] - x_mod[i_indices]
     slopes_mod = x_diff_mod / t_diff
 

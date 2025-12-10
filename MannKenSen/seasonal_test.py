@@ -15,7 +15,7 @@ from ._utils import (__preprocessing, __mk_score,
 from .plotting import plot_trend
 
 
-def seasonal_test(x, t, period=12, alpha=0.05, agg_method='none', season_type='month', hicensor=False, plot_path=None):
+def seasonal_test(x, t, period=12, alpha=0.05, agg_method='none', season_type='month', hicensor=False, plot_path=None, lt_mult=0.5, gt_mult=1.1):
     """
     Seasonal Mann-Kendall test for unequally spaced time series.
     Input:
@@ -35,6 +35,8 @@ def seasonal_test(x, t, period=12, alpha=0.05, agg_method='none', season_type='m
         season_type: For datetime inputs, specifies the type of seasonality.
                      'year', 'month', 'day_of_week', 'quarter', 'hour', 'week_of_year',
                      'day_of_year', 'minute', 'second'.
+        lt_mult (float): The multiplier for left-censored data (default 0.5).
+        gt_mult (float): The multiplier for right-censored data (default 1.1).
     Output:
         trend, h, p, z, Tau, s, var_s, slope, intercept, lower_ci, upper_ci, C, Cd
     """
@@ -152,7 +154,7 @@ def seasonal_test(x, t, period=12, alpha=0.05, agg_method='none', season_type='m
                 denom += 0.5 * n * (n - 1)
 
             if np.any(season_censored):
-                all_slopes.extend(_sens_estimator_censored(season_x, season_t, season_cen_type))
+                all_slopes.extend(_sens_estimator_censored(season_x, season_t, season_cen_type, lt_mult=lt_mult, gt_mult=gt_mult))
             else:
                 all_slopes.extend(__sens_estimator_unequal_spacing(season_x, season_t))
 

@@ -13,7 +13,7 @@ from ._utils import (__preprocessing, __mk_score, __variance_s, __z_score,
 from .plotting import plot_trend
 
 
-def original_test(x, t, alpha=0.05, hicensor=False, plot_path=None):
+def original_test(x, t, alpha=0.05, hicensor=False, plot_path=None, lt_mult=0.5, gt_mult=1.1):
     """
     Mann-Kendall test for unequally spaced time series.
     Input:
@@ -25,6 +25,8 @@ def original_test(x, t, alpha=0.05, hicensor=False, plot_path=None):
                          treated as censored at that limit.
         plot_path (str, optional): If provided, saves a plot of the trend
                                    analysis to this file path.
+        lt_mult (float): The multiplier for left-censored data (default 0.5).
+        gt_mult (float): The multiplier for right-censored data (default 1.1).
     Output:
         trend, h, p, z, Tau, s, var_s, slope, intercept, lower_ci, upper_ci, C, Cd
     """
@@ -80,7 +82,7 @@ def original_test(x, t, alpha=0.05, hicensor=False, plot_path=None):
     C, Cd = __mk_probability(p, s)
 
     if np.any(censored_filtered):
-        slopes = _sens_estimator_censored(x_filtered, t_filtered, cen_type_filtered)
+        slopes = _sens_estimator_censored(x_filtered, t_filtered, cen_type_filtered, lt_mult=lt_mult, gt_mult=gt_mult)
     else:
         slopes = __sens_estimator_unequal_spacing(x_filtered, t_filtered)
 
