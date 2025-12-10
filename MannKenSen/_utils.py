@@ -21,8 +21,10 @@ def _get_season_func(season_type, period):
     season_map = {
         'year': (1, lambda dt: dt.year),
         'month': (12, lambda dt: dt.month),
-        'day_of_week': (7, lambda dt: dt.dayofweek),
+        'bimonth': (6, lambda dt: (dt.month - 1) // 2),
         'quarter': (4, lambda dt: dt.quarter),
+        'biannual': (2, lambda dt: (dt.month - 1) // 6),
+        'day_of_week': (7, lambda dt: dt.dayofweek),
         'hour': (24, lambda dt: dt.hour),
         'week_of_year': ([52, 53], lambda dt: dt.isocalendar().week),
         'day_of_year': (None, lambda dt: dt.dayofyear),
@@ -48,7 +50,7 @@ def _get_cycle_identifier(dt_series, season_type):
     Returns a numeric series that uniquely identifies the larger time cycle
     for each timestamp, used for aggregation.
     """
-    if season_type in ['month', 'quarter', 'year', 'day_of_year', 'week_of_year']:
+    if season_type in ['month', 'bimonth', 'quarter', 'biannual', 'year', 'day_of_year', 'week_of_year']:
         # The cycle is the year
         return dt_series.year.to_numpy()
 

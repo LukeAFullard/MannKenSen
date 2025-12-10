@@ -9,10 +9,12 @@ from .original_test import original_test
 from .seasonal_test import seasonal_test
 from .seasonality_test import seasonality_test
 from .plotting import plot_seasonal_distribution
+from .automated_seasonal_test import automated_seasonal_test
 
 __all__ = [
     'original_test',
     'seasonal_test',
     'seasonality_test',
     'plot_seasonal_distribution',
+    'automated_seasonal_test',
 ]
