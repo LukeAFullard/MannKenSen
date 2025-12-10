@@ -5,20 +5,24 @@ and Sen's slope estimator to handle unequally spaced time series data.
 from collections import namedtuple
 import numpy as np
 import pandas as pd
-from ._utils import (__preprocessing, __missing_values_analysis, __mk_score,
+from pandas import DataFrame
+from ._utils import (__preprocessing, __mk_score,
                    __variance_s, __z_score, __p_value,
                    __sens_estimator_unequal_spacing, __confidence_intervals,
                    __mk_probability, _get_season_func, _is_datetime_like,
                    _get_cycle_identifier)
 
-def seasonal_test(x_old, t_old, period=12, alpha=0.05, agg_method='none', season_type='month'):
+def seasonal_test(x, t, period=12, alpha=0.05, agg_method='none', season_type='month', hicensor=False):
     """
     Seasonal Mann-Kendall test for unequally spaced time series.
     Input:
-        x_old: a vector of data
-        t_old: a vector of timestamps
-        period: seasonal cycle (default 12)
-        alpha: significance level (default 0.05)
+        x: a vector of data, or a DataFrame from prepare_censored_data.
+        t: a vector of timestamps.
+        period: seasonal cycle (default 12).
+        alpha: significance level (default 0.05).
+        hicensor (bool): If True, applies the high-censor rule, where all
+                         values below the highest left-censor limit are
+                         treated as censored at that limit.
         agg_method: method for aggregating multiple data points within a season-year.
                     'none' (default): performs analysis on all data points.
                     'median': uses the median of values and times for each season-year.
@@ -31,83 +35,121 @@ def seasonal_test(x_old, t_old, period=12, alpha=0.05, agg_method='none', season
     """
     res = namedtuple('Seasonal_Mann_Kendall_Test', ['trend', 'h', 'p', 'z', 'Tau', 's', 'var_s', 'slope', 'intercept', 'lower_ci', 'upper_ci', 'C', 'Cd'])
 
-    x_raw = np.asarray(x_old)
-    t_raw = np.asarray(t_old)
+    # Input validation and preparation
+    if isinstance(x, DataFrame) and all(col in x.columns for col in ['value', 'censored', 'cen_type']):
+        data = x.copy()
+    elif hasattr(x, '__iter__') and any(isinstance(i, str) for i in x):
+        raise TypeError("Input data `x` contains strings. Please pre-process it with `prepare_censored_data` first.")
+    else:
+        x_proc, _ = __preprocessing(x)
+        data = pd.DataFrame({
+            'value': x_proc,
+            'censored': np.zeros(len(x_proc), dtype=bool),
+            'cen_type': np.full(len(x_proc), 'not', dtype=object)
+        })
 
+    t_raw = np.asarray(t)
     is_datetime = _is_datetime_like(t_raw)
+    t_numeric, _ = __preprocessing(t_raw)
+    data['t_original'] = t_raw
+    data['t'] = t_numeric
 
     if is_datetime:
         season_func = _get_season_func(season_type, period)
 
-    mask = ~np.isnan(x_raw)
-    x, t = x_raw[mask], t_raw[mask]
+    # Handle missing values
+    mask = ~np.isnan(data['value'])
+    data_filtered = data[mask].copy()
 
-    if len(x) < 2:
+    # Apply HiCensor rule if requested
+    if hicensor and 'lt' in data_filtered['cen_type'].values:
+        max_lt_censor = data_filtered.loc[data_filtered['cen_type'] == 'lt', 'value'].max()
+        hi_censor_mask = data_filtered['value'] < max_lt_censor
+        data_filtered.loc[hi_censor_mask, 'censored'] = True
+        data_filtered.loc[hi_censor_mask, 'cen_type'] = 'lt'
+        data_filtered.loc[hi_censor_mask, 'value'] = max_lt_censor
+
+    if len(data_filtered) < 2:
         return res('no trend', False, np.nan, 0, 0, 0, 0, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan)
 
     # --- Aggregation Logic ---
     if agg_method != 'none':
         if is_datetime:
-            t_pd = pd.to_datetime(t)
-            cycles_agg = _get_cycle_identifier(t_pd, season_type)
+            t_pd = pd.to_datetime(data_filtered['t_original'])
+            cycles = _get_cycle_identifier(t_pd, season_type)
             seasons_agg = season_func(t_pd) if season_type != 'year' else np.ones(len(t_pd))
         else:
-            t_numeric_agg, _ = __preprocessing(t)
-            # Normalize the time vector to handle arbitrary start times
+            t_numeric_agg = data_filtered['t'].to_numpy()
             t_normalized = t_numeric_agg - t_numeric_agg[0]
-            cycles_agg = np.floor(t_normalized / period)
+            cycles = np.floor(t_normalized / period)
             seasons_agg = np.floor(t_normalized % period)
 
-        unique_cycle_seasons = np.unique(np.column_stack((cycles_agg, seasons_agg)), axis=0)
-        agg_x, agg_t = [], []
+        data_filtered['cycle'] = cycles
+        data_filtered['season_agg'] = seasons_agg
 
-        for cycle, season in unique_cycle_seasons:
-            group_mask = (cycles_agg == cycle) & (seasons_agg == season)
-            group_x, group_t = x[group_mask], t[group_mask]
-
-            if len(group_x) > 1:
-                if agg_method == 'median':
-                    agg_x.append(np.median(group_x))
-                    agg_t.append(pd.to_datetime(group_t).to_series().median() if is_datetime else np.median(group_t))
-                elif agg_method == 'middle':
-                    t_numeric_group, _ = __preprocessing(group_t)
-                    closest_idx = np.argmin(np.abs(t_numeric_group - np.mean(t_numeric_group)))
-                    agg_x.append(group_x[closest_idx])
-                    agg_t.append(group_t[closest_idx])
+        agg_data_list = []
+        for _, group in data_filtered.groupby(['cycle', 'season_agg']):
+            if len(group) == 1:
+                agg_data_list.append(group)
             else:
-                agg_x.append(group_x[0])
-                agg_t.append(group_t[0])
+                if agg_method == 'median':
+                    median_val = group['value'].median()
+                    new_row = {
+                        'value': median_val,
+                        't_original': pd.to_datetime(group['t_original']).to_series().median() if is_datetime else np.median(group['t_original']),
+                        't': np.median(group['t']),
+                        'censored': median_val <= group[group['censored']]['value'].max() if group['censored'].any() else False,
+                        'cen_type': group['cen_type'].mode()[0]
+                    }
+                    agg_data_list.append(pd.DataFrame([new_row]))
+                elif agg_method == 'middle':
+                    t_numeric_group = group['t'].to_numpy()
+                    closest_idx = np.argmin(np.abs(t_numeric_group - np.mean(t_numeric_group)))
+                    agg_data_list.append(group.iloc[[closest_idx]])
 
-        x, t = np.array(agg_x), np.array(agg_t)
+        data_filtered = pd.concat(agg_data_list, ignore_index=True)
+
 
     # --- Trend Analysis ---
-    t_numeric, _ = __preprocessing(t)
     if is_datetime and season_type != 'year':
-        seasons = season_func(pd.to_datetime(t))
+        seasons = season_func(pd.to_datetime(data_filtered['t_original']))
         season_range = np.unique(seasons)
     elif not is_datetime:
-        # Normalize for season calculation as well
-        t_normalized_season = t_numeric - t_numeric[0]
+        t_normalized_season = data_filtered['t'] - data_filtered['t'].min()
         seasons = (np.floor(t_normalized_season) % period).astype(int)
         season_range = range(int(period))
     else: # is_datetime and season_type == 'year'
-        seasons = np.ones(len(t))
+        seasons = np.ones(len(data_filtered))
         season_range = [1]
 
-
+    data_filtered['season'] = seasons
     s, var_s, denom = 0, 0, 0
     all_slopes = []
 
     for i in season_range:
-        season_mask = seasons == i
-        season_x, season_t = x[season_mask], t_numeric[season_mask]
+        season_mask = data_filtered['season'] == i
+        season_data = data_filtered[season_mask]
+        season_x = season_data['value'].to_numpy()
+        season_t = season_data['t'].to_numpy()
+        season_censored = season_data['censored'].to_numpy()
+        season_cen_type = season_data['cen_type'].to_numpy()
         n = len(season_x)
 
         if n > 1:
-            s += __mk_score(season_x, n)
-            var_s += __variance_s(season_x, n)
-            denom += 0.5 * n * (n - 1)
-            all_slopes.extend(__sens_estimator_unequal_spacing(season_x, season_t))
+            if np.any(season_censored):
+                s_season, var_s_season, d_season = _mk_score_and_var_censored(season_x, season_t, season_censored, season_cen_type)
+                s += s_season
+                var_s += var_s_season
+                denom += d_season
+            else:
+                s += __mk_score(season_x, n)
+                var_s += __variance_s(season_x, n)
+                denom += 0.5 * n * (n - 1)
+
+            if np.any(season_censored):
+                all_slopes.extend(_sens_estimator_censored(season_x, season_t, season_cen_type))
+            else:
+                all_slopes.extend(__sens_estimator_unequal_spacing(season_x, season_t))
 
     Tau = s / denom if denom != 0 else 0
     z = __z_score(s, var_s)
@@ -118,7 +160,7 @@ def seasonal_test(x_old, t_old, period=12, alpha=0.05, agg_method='none', season
         slope, intercept, lower_ci, upper_ci = np.nan, np.nan, np.nan, np.nan
     else:
         slope = np.nanmedian(np.asarray(all_slopes))
-        intercept = np.nanmedian(x) - np.nanmedian(t_numeric) * slope
+        intercept = np.nanmedian(data_filtered['value']) - np.nanmedian(data_filtered['t']) * slope
         lower_ci, upper_ci = __confidence_intervals(np.asarray(all_slopes), var_s, alpha)
 
     return res(trend, h, p, z, Tau, s, var_s, slope, intercept, lower_ci, upper_ci, C, Cd)
