@@ -46,9 +46,9 @@ def test_get_analysis_note_seasonal_less_than_2_unique_values():
 
 def test_get_analysis_note_seasonal_long_run():
     data = pd.DataFrame({
-        'value': [1, 1, 1, 1, 2, 6, 7, 8],
-        'censored': [False, False, False, False, False, False, False, False],
-        'season': [1, 1, 1, 1, 1, 2, 2, 2]
+        'value': [1, 1, 1, 1, 2, 5, 6, 7, 8],
+        'censored': [False, False, False, False, False, False, False, False, False],
+        'season': [1, 1, 1, 1, 1, 2, 2, 2, 2]
     })
     note = get_analysis_note(data, is_seasonal=True, post_aggregation=True)
     assert note == "Long run of single value in a Season"

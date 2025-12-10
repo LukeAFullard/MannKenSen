@@ -75,10 +75,9 @@ def get_analysis_note(data, values_col='value', censored_col='censored',
                 series = series.dropna()
                 if len(series) <= 1:
                     return False
-                # The R code's logic is based on diff, so the length for comparison is len(series)-1
-                rle_res = _rle_lengths(np.diff(series.to_numpy()))
+                rle_res = _rle_lengths(series.to_numpy())
                 if not rle_res.any(): return False
-                return rle_res.max() / (len(series) -1) > 0.75
+                return rle_res.max() / len(series) > 0.75
 
             long_run_in_season = data.groupby(season_col)[values_col].apply(check_run_length_seasonal).any()
             if long_run_in_season:
@@ -87,9 +86,8 @@ def get_analysis_note(data, values_col='value', censored_col='censored',
         else:  # Not seasonal
             values = data[values_col].dropna().to_numpy()
             if len(values) > 1:
-                # The R code's logic is based on diff, so the length for comparison is len(values)-1
-                rle_res = _rle_lengths(np.diff(values))
-                if len(rle_res) > 0 and rle_res.max() / (len(values)-1) > 0.5:
+                rle_res = _rle_lengths(values)
+                if len(rle_res) > 0 and rle_res.max() / len(values) > 0.5:
                     return "Long run of single value"
 
     return "ok"

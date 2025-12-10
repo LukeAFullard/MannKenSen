@@ -182,3 +182,19 @@ Provides warnings about censored values used in the derivation of the Sen's Slop
 
 **Output:**
 A string containing the analysis note (e.g., "ok", "WARNING: Sen slope influenced by censored values").
+
+### `inspect_trend_data(data, trend_period=None, end_year=None, prop_year_tol=0.9, prop_incr_tol=0.9, return_summary=False)`
+
+Inspects data availability over a trend period and determines the best time increment for trend analysis.
+
+**Input:**
+- `data`: A pandas DataFrame containing at least a time column and a value column.
+- `trend_period`: The number of years in the trend period. Defaults to the full range of data.
+- `end_year`: The last year of the trend period. Defaults to the last year in the data.
+- `prop_year_tol`: The minimum proportion of years in the trend period that must have at least one observation.
+- `prop_incr_tol`: The minimum proportion of time increments within the trend period that must have at least one observation.
+- `return_summary`: If True, returns a tuple containing the modified DataFrame and a summary of data availability.
+
+**Output:**
+- The filtered DataFrame with a new 'time_increment' column. If no suitable increment is found, this column will be filled with 'none'.
+- If `return_summary` is True, a second DataFrame summarizing the data availability for each time increment is also returned.
