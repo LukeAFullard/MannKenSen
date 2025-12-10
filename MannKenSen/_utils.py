@@ -161,8 +161,18 @@ def _mk_score_and_var_censored(x, t, censored, cen_type):
     censored_mod = censored.copy()
     if np.any(cen_type == 'gt'):
         gt_mask = cen_type == 'gt'
-        # Add a small amount to break ties, treat as uncensored
-        max_gt_val = x_mod[gt_mask].max() + 0.1
+
+        # Calculate a small, data-relative value to break ties
+        unique_vals = np.unique(x_mod)
+        if len(unique_vals) > 1:
+            min_diff = np.min(np.diff(unique_vals))
+            # Use a small fraction of the minimum difference, or a default small number
+            tie_break_value = min_diff * 0.01 if min_diff > 0 else 1e-9
+        else:
+            tie_break_value = 1e-9 # Fallback for data with no variance
+
+        # Add the small amount to break ties, treat as uncensored
+        max_gt_val = x_mod[gt_mask].max() + tie_break_value
         x_mod[gt_mask] = max_gt_val
         censored_mod[gt_mask] = False
 

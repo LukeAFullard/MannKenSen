@@ -29,6 +29,22 @@ def original_test(x, t, alpha=0.05, hicensor=False, plot_path=None, lt_mult=0.5,
         gt_mult (float): The multiplier for right-censored data (default 1.1).
     Output:
         trend, h, p, z, Tau, s, var_s, slope, intercept, lower_ci, upper_ci, C, Cd
+
+    A namedtuple containing the following fields:
+        - trend: The trend of the data ('increasing', 'decreasing', or 'no trend').
+        - h: A boolean indicating whether the trend is significant.
+        - p: The p-value of the test.
+        - z: The Z-statistic.
+        - Tau: Kendall's Tau, a measure of correlation between the data and time.
+               Ranges from -1 (perfectly decreasing) to +1 (perfectly increasing).
+        - s: The Mann-Kendall score.
+        - var_s: The variance of `s`.
+        - slope: The Sen's slope.
+        - intercept: The intercept of the trend line.
+        - lower_ci: The lower confidence interval of the slope.
+        - upper_ci: The upper confidence interval of the slope.
+        - C: The confidence of the trend direction.
+        - Cd: The confidence that the trend is decreasing.
     """
     res = namedtuple('Mann_Kendall_Test', ['trend', 'h', 'p', 'z', 'Tau', 's', 'var_s', 'slope', 'intercept', 'lower_ci', 'upper_ci', 'C', 'Cd'])
 
@@ -47,6 +63,11 @@ def original_test(x, t, alpha=0.05, hicensor=False, plot_path=None, lt_mult=0.5,
 
     t_proc, _ = __preprocessing(t)
     data['t'] = t_proc
+
+    # Check for tied timestamps
+    if len(t_proc) != len(np.unique(t_proc)):
+        import warnings
+        warnings.warn("Tied timestamps detected in the time vector `t`. Corresponding data points will be excluded from the Sen's slope calculation.", UserWarning)
 
     # Handle missing values
     mask = ~np.isnan(data['value']) & ~np.isnan(data['t'])

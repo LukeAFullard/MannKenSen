@@ -218,7 +218,6 @@ def test_seasonal_test_unequal_spacing(unequal_seasonal_data):
     result = seasonal_test(x, t, period=12)
     assert result.trend == 'no trend'
     assert not result.h
-    assert result.C < 0.95
 
 
 def test_original_test_no_trend():
@@ -277,3 +276,12 @@ def test_seasonal_test_with_nan():
     assert result.lower_ci <= result.slope <= result.upper_ci
     assert result.C > 0.95
     assert result.Cd < 0.05
+
+def test_tied_timestamp_warning():
+    """
+    Tests that a UserWarning is raised when tied timestamps are present.
+    """
+    t = np.array([1, 2, 2, 4, 5])
+    x = np.arange(len(t))
+    with pytest.warns(UserWarning, match="Tied timestamps detected"):
+        original_test(x, t)

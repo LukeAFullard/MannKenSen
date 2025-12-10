@@ -48,3 +48,24 @@ def test_prepare_censored_data_invalid_censored_format():
 def test_prepare_censored_data_non_iterable():
     with pytest.raises(TypeError):
         prepare_censored_data(123)
+
+# New test for dynamic tie-breaking in censored data
+def test_dynamic_tie_breaking_right_censored():
+    """
+    Tests that the tie-breaking for right-censored data is handled correctly,
+    regardless of the data's scale.
+    """
+    # Dataset with a clear increasing trend and a right-censored value
+    # that could cause issues if the tie-breaking value is too large.
+    x = [1, 2, 3, 4, '>4']
+    t = np.arange(len(x))
+
+    # Pre-process the data
+    data = prepare_censored_data(x)
+
+    # Perform the trend test
+    result = original_test(data, t)
+
+    # The trend should be increasing
+    assert result.trend == 'increasing'
+    assert result.h

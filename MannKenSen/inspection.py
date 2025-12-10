@@ -6,10 +6,12 @@ and determine the most suitable time increment for analysis.
 """
 import pandas as pd
 import numpy as np
+from collections import namedtuple
 
 def inspect_trend_data(data, trend_period=None, end_year=None,
                      prop_year_tol=0.9, prop_incr_tol=0.9,
-                     return_summary=False, value_col='value', time_col='t'):
+                     return_summary=False, value_col='value', time_col='t',
+                     custom_increments=None):
     """
     Inspects data availability over a trend period and determines the best time
     increment for trend analysis.
@@ -26,18 +28,28 @@ def inspect_trend_data(data, trend_period=None, end_year=None,
         prop_incr_tol (float): The minimum proportion of time increments within
                                the trend period that must have at least one
                                observation.
-        return_summary (bool): If True, returns a tuple containing the modified
+        return_summary (bool): If True, returns a namedtuple containing the modified
                                DataFrame and a summary of data availability.
         value_col (str): The name of the column containing data values.
         time_col (str): The name of the column containing datetime objects.
+        custom_increments (dict, optional): A dictionary of custom time increments.
+                                            Keys are the increment names (e.g.,
+                                            'weekly'), and values are the number
+                                            of increments in a year. If not
+                                            provided, a default set of increments
+                                            is used. Supported increments are:
+                                            'annually', 'bi-annually', 'quarterly',
+                                            'bi-monthly', 'monthly', 'weekly', 'daily'.
 
     Returns:
-        pd.DataFrame or (pd.DataFrame, pd.DataFrame):
+        pd.DataFrame or namedtuple:
         - The filtered DataFrame with a new 'time_increment' column. If no
           suitable increment is found, this column will be filled with 'none'.
-        - If `return_summary` is True, a second DataFrame summarizing the data
-          availability for each time increment is also returned.
+        - If `return_summary` is True, a namedtuple `InspectionResult` with
+          `data` and `summary` attributes is returned.
     """
+    InspectionResult = namedtuple('InspectionResult', ['data', 'summary'])
+
     if not isinstance(data, pd.DataFrame):
         raise TypeError("Input 'data' must be a pandas DataFrame.")
 
@@ -67,30 +79,40 @@ def inspect_trend_data(data, trend_period=None, end_year=None,
     if df_filtered.empty:
         df_filtered['time_increment'] = 'none'
         if return_summary:
-            return df_filtered, pd.DataFrame()
+            return InspectionResult(data=df_filtered, summary=pd.DataFrame())
         return df_filtered
 
     # --- 2. Define Time Increments and Helper Columns ---
-    time_increments = {
-        'monthly': 12,
-        'bi-monthly': 6,
-        'quarterly': 4,
-        'bi-annually': 2,
-        'annually': 1
-    }
+    if custom_increments:
+        time_increments = custom_increments
+    else:
+        time_increments = {
+            'daily': 365,
+            'weekly': 52,
+            'monthly': 12,
+            'bi-monthly': 6,
+            'quarterly': 4,
+            'bi-annually': 2,
+            'annually': 1
+        }
 
     df_filtered['year'] = df_filtered[time_col].dt.year
     df_filtered['month'] = df_filtered[time_col].dt.month
     df_filtered['quarter'] = df_filtered[time_col].dt.quarter
     df_filtered['bi-month'] = (df_filtered['month'] - 1) // 2 + 1
     df_filtered['bi-annual'] = (df_filtered['month'] - 1) // 6 + 1
+    df_filtered['week'] = df_filtered[time_col].dt.isocalendar().week
+    df_filtered['day'] = df_filtered[time_col].dt.dayofyear
+
 
     increment_map = {
         'monthly': 'month',
         'bi-monthly': 'bi-month',
         'quarterly': 'quarter',
         'bi-annually': 'bi-annual',
-        'annually': 'year'
+        'annually': 'year',
+        'weekly': 'week',
+        'daily': 'day'
     }
 
     # --- 3. Data Availability Summary ---
@@ -98,6 +120,8 @@ def inspect_trend_data(data, trend_period=None, end_year=None,
     best_time_incr = 'none'
 
     for name, num_increments in time_increments.items():
+        if name not in increment_map:
+            raise ValueError(f"Custom increment '{name}' is not supported. Supported increments are: {list(increment_map.keys())}")
         col = increment_map[name]
 
         n_years_with_data = df_filtered['year'].nunique()
@@ -125,7 +149,11 @@ def inspect_trend_data(data, trend_period=None, end_year=None,
         availability_summary.append(summary)
 
         if is_ok and best_time_incr == 'none':
-            best_time_incr = name
+            # Find the best increment by selecting the one with the highest frequency (most increments per year)
+            if not best_time_incr:
+                 best_time_incr = name
+            elif time_increments.get(name, 0) > time_increments.get(best_time_incr, 0):
+                best_time_incr = name
 
     # --- 4. Add 'time_increment' Column ---
     if best_time_incr != 'none':
@@ -135,11 +163,11 @@ def inspect_trend_data(data, trend_period=None, end_year=None,
         df_filtered['time_increment'] = 'none'
 
     # Clean up helper columns
-    df_filtered.drop(columns=['year', 'month', 'quarter', 'bi-month', 'bi-annual'], inplace=True)
+    df_filtered.drop(columns=['year', 'month', 'quarter', 'bi-month', 'bi-annual', 'week', 'day'], inplace=True)
 
     summary_df = pd.DataFrame(availability_summary)
 
     if return_summary:
-        return df_filtered, summary_df
+        return InspectionResult(data=df_filtered, summary=summary_df)
 
     return df_filtered

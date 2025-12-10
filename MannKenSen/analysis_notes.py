@@ -134,13 +134,28 @@ def get_sens_slope_analysis_note(slopes, t, cen_type):
     median_cen_labels = cen_type_pairs[indices_of_median]
     unique_median_cen_labels = np.unique(median_cen_labels)
 
-    if not all(label == 'not not' for label in unique_median_cen_labels):
+    # Check for influence from censored data
+    if any(label != 'not not' for label in unique_median_cen_labels):
+        # Both values in the pair are censored
         if all(label in ['lt lt', 'gt gt', 'lt gt', 'gt lt'] for label in unique_median_cen_labels):
             return "WARNING: Sen slope based on two censored values"
+
+        # Identify which types of censoring are involved
+        has_lt = any('lt' in label for label in unique_median_cen_labels)
+        has_gt = any('gt' in label for label in unique_median_cen_labels)
+
+        if has_lt and has_gt:
+            return "WARNING: Sen slope influenced by left- and right-censored values"
+        elif has_lt:
+            return "WARNING: Sen slope influenced by left-censored values"
+        elif has_gt:
+            return "WARNING: Sen slope influenced by right-censored values"
         else:
+            # Fallback for unexpected cases
             return "WARNING: Sen slope influenced by censored values"
-    else:
-        if np.isclose(median_slope, 0):
-            return "WARNING: Sen slope based on tied non-censored values"
+
+    # Check for ties in non-censored data
+    elif np.isclose(median_slope, 0):
+        return "WARNING: Sen slope based on tied non-censored values"
 
     return "ok"

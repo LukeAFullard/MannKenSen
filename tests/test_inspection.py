@@ -44,10 +44,10 @@ def test_inspect_trend_data_empty_filter_return():
 
 def test_inspect_trend_data_return_summary(sample_data):
     """Test the return_summary functionality."""
-    _, summary_df = inspect_trend_data(sample_data, return_summary=True)
-    assert isinstance(summary_df, pd.DataFrame)
-    assert 'increment' in summary_df.columns
-    assert 'data_ok' in summary_df.columns
+    result = inspect_trend_data(sample_data, return_summary=True)
+    assert isinstance(result.summary, pd.DataFrame)
+    assert 'increment' in result.summary.columns
+    assert 'data_ok' in result.summary.columns
 
 def test_inspect_trend_data_error_handling():
     """Test error handling for invalid input."""
@@ -59,3 +59,19 @@ def test_inspect_trend_data_error_handling():
 
     with pytest.raises(ValueError):
         inspect_trend_data(pd.DataFrame({'t': [1]}), value_col='value')
+
+def test_inspect_trend_data_custom_increments(sample_data):
+    """Test the custom_increments functionality."""
+    custom_increments = {'bi-annually': 2, 'annually': 1}
+    result = inspect_trend_data(sample_data, custom_increments=custom_increments, return_summary=True)
+    assert len(result.summary) == 2
+    assert set(result.summary['increment']) == {'bi-annually', 'annually'}
+    assert (result.data['time_increment'] == (result.data['t'].dt.month - 1) // 6 + 1).all()
+
+def test_inspect_trend_data_weekly_increment():
+    """Test the new 'weekly' increment."""
+    dates = pd.to_datetime(pd.date_range(start='2018-01-01', end='2019-12-31', freq='W'))
+    values = range(len(dates))
+    data = pd.DataFrame({'t': dates, 'value': values})
+    inspected_data = inspect_trend_data(data)
+    assert (inspected_data['time_increment'] == inspected_data['t'].dt.isocalendar().week).all()
