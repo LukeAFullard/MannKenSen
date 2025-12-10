@@ -88,6 +88,7 @@ The `period` parameter is crucial for correct seasonal analysis, and its meaning
 | `'quarter'`      | Quarter of the year                       | 4                 | Groups data by the calendar quarter (e.g., all Q1s). |
 | `'hour'`         | Hour of the day                           | 24                | Groups data by the hour of the day (e.g., all 9 AMs). |
 | `'week_of_year'` | ISO week of the year                      | 52 or 53          | Groups data by the ISO week number. |
+| `'biweekly'`     | Two-week period of the year               | 26 or 27          | Groups data by two-week periods based on the ISO week number. |
 | `'day_of_year'`  | Day of the year                           | (no validation)   | Groups data by the day of the year (1-366). |
 | `'minute'`       | Minute of the hour                        | 60                | Groups data by the minute of the hour. |
 | `'second'`       | Second of the minute                      | 60                | Groups data by the second of the minute. |
@@ -183,7 +184,7 @@ Provides warnings about censored values used in the derivation of the Sen's Slop
 **Output:**
 A string containing the analysis note (e.g., "ok", "WARNING: Sen slope influenced by censored values").
 
-### `inspect_trend_data(data, trend_period=None, end_year=None, prop_year_tol=0.9, prop_incr_tol=0.9, return_summary=False)`
+### `inspect_trend_data(data, trend_period=None, end_year=None, prop_year_tol=0.9, prop_incr_tol=0.9, return_summary=False, custom_increments=None)`
 
 Inspects data availability over a trend period and determines the best time increment for trend analysis.
 
@@ -193,8 +194,9 @@ Inspects data availability over a trend period and determines the best time incr
 - `end_year`: The last year of the trend period. Defaults to the last year in the data.
 - `prop_year_tol`: The minimum proportion of years in the trend period that must have at least one observation.
 - `prop_incr_tol`: The minimum proportion of time increments within the trend period that must have at least one observation.
-- `return_summary`: If True, returns a tuple containing the modified DataFrame and a summary of data availability.
+- `return_summary`: If True, returns a namedtuple containing the modified DataFrame and a summary of data availability.
+- `custom_increments`: A dictionary of custom time increments. Keys are the increment names (e.g., 'weekly'), and values are the number of increments in a year. If not provided, a default set of increments is used. Supported increments are: 'annually', 'bi-annually', 'quarterly', 'bi-monthly', 'monthly', 'weekly', 'daily'.
 
 **Output:**
 - The filtered DataFrame with a new 'time_increment' column. If no suitable increment is found, this column will be filled with 'none'.
-- If `return_summary` is True, a second DataFrame summarizing the data availability for each time increment is also returned.
+- If `return_summary` is True, a namedtuple `InspectionResult` with `data` and `summary` attributes is returned.
