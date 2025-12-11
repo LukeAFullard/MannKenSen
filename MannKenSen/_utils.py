@@ -87,7 +87,7 @@ def _rle_lengths(a):
     return np.diff(idx)
 
 
-def _mk_score_and_var_censored(x, t, censored, cen_type):
+def _mk_score_and_var_censored(x, t, censored, cen_type, tau_method='b'):
     """
     Calculates the Mann-Kendall S statistic and its variance for censored data.
     This is a Python translation of the GetKendal function from the LWP-TRENDS
@@ -146,13 +146,46 @@ def _mk_score_and_var_censored(x, t, censored, cen_type):
     xplus = (cx[:, np.newaxis].astype(int) + cx.astype(int))
     xplus[xplus <= 1] = 0
     xplus[xplus > 1] = 1
+    tplus = xplus * np.abs(np.sign(diffx))
+
 
     itot = np.sum(np.triu(signyx * (1 - xplus), k=1))
     kenS = itot
-    D = n * (n - 1) / 2.0
 
-    # 5. Variance Calculation (adapted from NADA::cenken)
+    # 5. D (denominator) calculation for Tau
+    J = n * (n - 1) / 2.0
+    if tau_method == 'a':
+        D = J
+    else: # Default to Tau-b
+        # tt: number of tied pairs in x
+        tt = (np.sum(1 - np.abs(np.sign(diffx))) - n) / 2.0
+        tt += np.sum(cix) / 2.0
+        tt += np.sum(tplus) / 2.0
+
+        # uu: number of tied pairs in y (time)
+        diffcy = cy[:, np.newaxis].astype(int) - cy.astype(int)
+        ciy = np.sign(diffcy) * np.sign(diffy)
+        ciy[ciy <= 0] = 0
+        uu = (np.sum(1 - np.abs(np.sign(diffy))) - n) / 2.0
+        uu += np.sum(ciy) / 2.0
+        yplus = (cy[:, np.newaxis].astype(int) + cy.astype(int))
+        yplus[yplus <= 1] = 0
+        yplus[yplus > 1] = 1
+        uplus = yplus * np.abs(np.sign(diffy))
+        uu += np.sum(uplus) / 2.0
+
+        tau_denom = np.sqrt(J - tt) * np.sqrt(J - uu)
+        D = tau_denom if tau_denom > 0 else J
+
+
+    # 6. Variance Calculation (adapted from NADA::cenken)
     varS = n * (n - 1) * (2 * n + 5) / 18.0
+
+    # Add tie correction for x variable (previously in __variance_s)
+    unique_x, tp = np.unique(x, return_counts=True)
+    if n != len(unique_x):
+        varS -= np.sum(tp * (tp - 1) * (2 * tp + 5)) / 18.0
+
     intg = np.arange(1, n + 1)
 
     dorder_x = np.argsort(dupx)

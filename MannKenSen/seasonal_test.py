@@ -17,7 +17,7 @@ from ._utils import (__mk_score, __variance_s, __z_score, __p_value,
 from .plotting import plot_trend
 
 
-def seasonal_test(x, t, period=12, alpha=0.05, agg_method='none', season_type='month', hicensor=False, plot_path=None, lt_mult=0.5, gt_mult=1.1, sens_slope_method='lwp'):
+def seasonal_test(x, t, period=12, alpha=0.05, agg_method='none', season_type='month', hicensor=False, plot_path=None, lt_mult=0.5, gt_mult=1.1, sens_slope_method='lwp', tau_method='b'):
     """
     Seasonal Mann-Kendall test for unequally spaced time series.
     Input:
@@ -46,6 +46,8 @@ def seasonal_test(x, t, period=12, alpha=0.05, agg_method='none', season_type='m
         sens_slope_method (str): The method to use for handling ambiguous slopes
                                  in censored data. See `_sens_estimator_censored`
                                  for details.
+        tau_method (str): The method for calculating Kendall's Tau ('a' or 'b').
+                          Default is 'b', which accounts for ties.
     Output:
         A namedtuple containing the following fields:
         - trend: The trend of the data ('increasing', 'decreasing', or 'no trend').
@@ -144,15 +146,13 @@ def seasonal_test(x, t, period=12, alpha=0.05, agg_method='none', season_type='m
         n = len(season_x)
 
         if n > 1:
-            if np.any(season_censored):
-                s_season, var_s_season, d_season = _mk_score_and_var_censored(season_x, season_t, season_censored, season_cen_type)
-                s += s_season
-                var_s += var_s_season
-                denom += d_season
-            else:
-                s += __mk_score(season_x, n)
-                var_s += __variance_s(season_x, n)
-                denom += 0.5 * n * (n - 1)
+            s_season, var_s_season, d_season = _mk_score_and_var_censored(
+                season_x, season_t, season_censored, season_cen_type,
+                tau_method=tau_method
+            )
+            s += s_season
+            var_s += var_s_season
+            denom += d_season
 
             if np.any(season_censored):
                 all_slopes.extend(_sens_estimator_censored(
