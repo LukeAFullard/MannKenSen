@@ -264,3 +264,49 @@ print(regional_res)
 # Expected Output (values will vary slightly due to random noise):
 # RegionalTrendResult(M=3, TAU=0.666..., VarTAU=..., CorrectedVarTAU=..., DT='Increasing', CT=...)
 ```
+
+### `classify_trend(result, category_map=None)`
+
+Classifies a trend result into a descriptive, human-readable category based on its statistical significance and confidence. This is useful for interpreting and communicating trend analysis results.
+
+**Input:**
+- `result`: The namedtuple returned by `original_test` or `seasonal_test`.
+- `category_map` (dict, optional): A dictionary mapping confidence thresholds (float) to descriptive category labels (str). If `None`, a default IPCC-style mapping is used:
+  ```python
+  {
+      0.95: "Highly Likely",
+      0.90: "Very Likely",
+      0.67: "Likely",
+      0.0:  "As Likely as Not"
+  }
+  ```
+
+**Output:**
+A string describing the trend category (e.g., "Highly Likely Increasing", "No Trend").
+
+**Example: Classifying a Trend**
+```python
+import numpy as np
+from MannKenSen import original_test, classify_trend
+
+# Create synthetic data with a clear trend
+t = np.arange(20)
+x = 0.1 * t + np.random.normal(0, 0.5, 20)
+
+# Perform the trend test
+result = original_test(x, t)
+
+# Classify the result
+category = classify_trend(result)
+print(f"The trend is: {category}")
+# Possible output: "The trend is: Very Likely Increasing"
+
+# Example with a custom category map
+custom_map = {
+    0.99: "Virtually Certain",
+    0.90: "Extremely Likely",
+}
+custom_category = classify_trend(result, category_map=custom_map)
+print(f"The custom category is: {custom_category}")
+# Possible output: "The custom category is: Extremely Likely Increasing"
+```
