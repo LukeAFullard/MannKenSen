@@ -25,6 +25,26 @@ def seasonality_test(x_old, t_old, period=12, alpha=0.05, season_type='month'):
         - h_statistic: The Kruskal-Wallis H-statistic.
         - p_value: The p-value of the test.
         - is_seasonal: A boolean indicating if seasonality was detected.
+
+    Statistical Assumptions:
+    ----------------------
+    The Kruskal-Wallis H-test is a non-parametric test used to determine if
+    there are statistically significant differences between two or more groups
+    of an independent variable on a continuous or ordinal dependent variable.
+    It is the non-parametric equivalent of the one-way ANOVA.
+
+    1.  **Independence of Observations**: The observations in each group (season)
+        must be independent of each other.
+    2.  **Ordinal or Continuous Data**: The dependent variable (the data `x`)
+        should be measured on an ordinal or continuous scale.
+    3.  **Similar Distribution Shape**: The test assumes that the distributions
+        of the data in each group have a similar shape. If the shapes of the
+        distributions are different, the test may lead to incorrect conclusions
+        about the medians.
+    4.  **Minimum Sample Size**: While there is no strict rule, it is generally
+        recommended to have at least 5 observations per group for the test to
+        be reliable. This implementation checks for a minimum of 3, following
+        the LWP-TRENDS script.
     """
     res = namedtuple('Seasonality_Test', ['h_statistic', 'p_value', 'is_seasonal'])
 

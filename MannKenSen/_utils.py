@@ -109,6 +109,28 @@ def _mk_score_and_var_censored(x, t, censored, cen_type, tau_method='b'):
     Calculates the Mann-Kendall S statistic and its variance for censored data.
     This is a Python translation of the GetKendal function from the LWP-TRENDS
     R script, which is adapted from the NADA package (Helsel, 2012).
+
+    Statistical Assumptions:
+    ----------------------
+    This function adapts the Mann-Kendall test for censored data and relies on
+    similar core assumptions, but with specific considerations for censoring:
+
+    1.  **Independence and Monotonic Trend**: Same as the standard Mann-Kendall
+        test. The data should be serially independent, and the underlying
+        trend should be monotonic.
+    2.  **Correct Censoring Information**: The accuracy of the test depends on
+        the correct classification of data as left-censored ('lt'),
+        right-censored ('gt'), or non-censored ('not').
+    3.  **Tie Correction**: The variance calculation includes a robust tie
+        correction method that is essential for accuracy when censored data
+        introduces ties. The method is adapted from the NADA R package and is
+        designed to handle ties between censored-censored, censored-uncensored,
+        and uncensored-uncensored data points.
+    4.  **Handling of Right-Censored Data**: To avoid ambiguity, right-censored
+        data is temporarily replaced with a value slightly larger than the
+        maximum observed value. This is a pragmatic choice to ensure such
+        points are ranked correctly but assumes they are indeed the largest
+        values.
     """
     x = np.asarray(x)
     t = np.asarray(t)
@@ -349,6 +371,17 @@ def __mk_probability(p, s):
 def __sens_estimator_unequal_spacing(x, t):
     """
     Computes Sen's slope for unequally spaced data using a vectorized approach.
+
+    Statistical Assumptions:
+    ----------------------
+    1.  **Linear Trend**: The method assumes that the trend in the data can be
+        reasonably approximated by a linear model. The Sen's slope is the
+        median of the slopes calculated between all pairs of points, providing
+        a robust estimate of the linear trend.
+    2.  **Independence of Errors**: The errors (deviations from the linear
+        trend) are assumed to be independent.
+    3.  **Homoscedasticity**: It is assumed that the variance of the errors is
+        constant over time.
     """
     n = len(x)
     if n < 2:
@@ -389,6 +422,28 @@ def _sens_estimator_censored(x, t, cen_type, lt_mult=0.5, gt_mult=1.1, method='l
 
     Returns:
         np.array: An array of calculated slopes.
+
+    Statistical Assumptions:
+    ----------------------
+    This function extends Sen's slope estimation to censored data, building
+    on the same core assumptions but with important methodological choices:
+
+    1.  **Linear Trend**: Like the standard Sen's slope, a linear trend is
+        assumed.
+    2.  **Substitution of Censored Values**: For the final slope calculation,
+        censored values are substituted with a multiple of their detection
+        limit (`lt_mult` for left-censored, `gt_mult` for right-censored).
+        This is a heuristic approach from the LWP-TRENDS script and assumes
+        these substitutions are reasonable proxies for the true values.
+    3.  **Handling of Ambiguous Slopes**: The method acknowledges that the
+        slope between certain pairs of points (e.g., two left-censored values)
+        is ambiguous. The `method` parameter determines how these are handled:
+        -   `'lwp'` (default): Sets ambiguous slopes to 0. This is a
+            conservative choice that reduces the magnitude of the overall
+            median slope but may not be statistically neutral.
+        -   `'nan'`: Sets ambiguous slopes to NaN, effectively removing them
+            from the median calculation. This is a more statistically neutral
+            approach, as it does not bias the slope towards zero.
     """
     n = len(x)
     if n < 2:

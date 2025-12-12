@@ -60,6 +60,30 @@ def original_test(x, t, alpha=0.05, hicensor=False, plot_path=None, lt_mult=0.5,
         - upper_ci: The upper confidence interval of the slope.
         - C: The confidence of the trend direction.
         - Cd: The confidence that the trend is decreasing.
+
+    Statistical Assumptions:
+    ----------------------
+    The Mann-Kendall test and Sen's slope estimator are non-parametric methods
+    and do not require data to be normally distributed. However, they rely on
+    the following assumptions:
+
+    1.  **Independence**: The data points are serially independent. The presence
+        of autocorrelation (serial correlation) can violate this assumption and
+        affect the significance of the results.
+    2.  **Monotonic Trend**: The trend is assumed to be monotonic, meaning it is
+        consistently in one direction (either increasing or decreasing) over
+        the time period. The test is not suitable for detecting non-monotonic
+        (e.g., cyclical) trends.
+    3.  **Homogeneity of Variance**: While not strictly required, the test is
+        most powerful when the variance of the data is homogeneous over time.
+    4.  **Continuous Data**: The test is designed for continuous data. Although it
+        can handle ties, a large number of ties can reduce its power.
+    5.  **Normal Approximation**: For sample sizes typically > 10, the test
+        statistic `S` is assumed to be approximately normally distributed, which
+        is used to calculate the Z-score and p-value. This approximation may be
+        less accurate for very small sample sizes with many ties.
+    6.  **Linear Trend (for Sen's Slope)**: Sen's slope provides a linear estimate
+        of the trend, and the confidence intervals are based on this assumption.
     """
     res = namedtuple('Mann_Kendall_Test', ['trend', 'h', 'p', 'z', 'Tau', 's', 'var_s', 'slope', 'intercept', 'lower_ci', 'upper_ci', 'C', 'Cd'])
 

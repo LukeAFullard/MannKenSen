@@ -38,6 +38,30 @@ def regional_test(trend_results, time_series_data, site_col='site',
                                        inter-site correlation.
             - DT (str): The aggregate trend direction ('Increasing' or 'Decreasing').
             - CT (float): The confidence in the aggregate trend direction.
+
+    Statistical Assumptions:
+    ----------------------
+    The regional trend aggregation method is based on the work of van Belle
+    and Hughes (1984) and is designed to combine results from multiple sites
+    while accounting for inter-site correlation.
+
+    1.  **Homogeneity of Trend Direction**: The method is most meaningful when
+        the trend directions across the sites are relatively homogeneous. It
+        calculates a "modal direction" and assesses the overall trend based
+        on this direction. If sites have strongly opposing trends, the
+        aggregate result may not be representative.
+    2.  **Pearson Correlation for Inter-site Dependence**: The correction for
+        inter-site correlation is based on the pairwise Pearson correlation
+        of the raw time series data. This assumes that a linear correlation
+        coefficient is a reasonable measure of the dependence between sites.
+    3.  **Normal Approximation for Aggregate Trend**: The final confidence in the
+        aggregate trend (`CT`) is calculated using a Z-score, which assumes that
+        the aggregate trend statistic (`TAU`) is approximately normally
+        distributed. This assumption is more likely to hold with a larger
+        number of sites.
+    4.  **Validity of Single-Site Tests**: The quality of the regional analysis
+        is dependent on the validity of the individual site trend tests that
+        are used as input.
     """
     RegionalTrendResult = namedtuple('RegionalTrendResult',
                                      ['M', 'TAU', 'VarTAU', 'CorrectedVarTAU',
