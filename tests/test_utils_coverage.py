@@ -7,7 +7,7 @@ import numpy as np
 from MannKenSen._utils import (_is_datetime_like, _get_season_func,
                              _get_cycle_identifier, _rle_lengths,
                              __missing_values_analysis,
-                             _mk_score_and_var_censored)
+                             _mk_score_and_var_censored, _aggregate_censored_median)
 
 class TestUtilsCoverage(unittest.TestCase):
 
@@ -50,6 +50,33 @@ class TestUtilsCoverage(unittest.TestCase):
         self.assertEqual(s, 0)
         self.assertGreaterEqual(var_s, 0)
         self.assertEqual(D, 3)
+
+class TestAggregateCensoredMedian(unittest.TestCase):
+
+    def test_empty_group(self):
+        """Test that an empty group returns an empty DataFrame."""
+        group = pd.DataFrame({'value': [], 'censored': [], 'cen_type': [], 't_original': [], 't': []})
+        result = _aggregate_censored_median(group, is_datetime=False)
+        self.assertTrue(result.empty)
+
+    def test_nan_cen_type_mode(self):
+        """Test that a group with only NaN cen_types for censored data is handled."""
+        group = pd.DataFrame({
+            'value': [1, 2, 3],
+            'censored': [True, True, False],
+            'cen_type': [np.nan, np.nan, 'not'],
+            't_original': [1, 2, 3],
+            't': [1, 2, 3]
+        })
+        # The median is 2, and the max censored value is 2, so `is_censored` would be true.
+        # However, since the mode of cen_type for censored data is empty, it should
+        # fall back to 'not' and `is_censored` should become False.
+        result = _aggregate_censored_median(group, is_datetime=False)
+        self.assertIsInstance(result, pd.DataFrame)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result['value'].iloc[0], 2.0)
+        self.assertFalse(result['censored'].iloc[0])
+        self.assertEqual(result['cen_type'].iloc[0], 'not')
 
 if __name__ == '__main__':
     unittest.main()

@@ -456,7 +456,7 @@ def _aggregate_censored_median(group, is_datetime):
     """
     n = len(group)
     if n == 0:
-        return None
+        return pd.DataFrame()  # Changed from None
 
     # Compute median value
     median_val = group['value'].median()
@@ -468,12 +468,17 @@ def _aggregate_censored_median(group, is_datetime):
     else:
         # Get maximum censored value
         max_censored = group.loc[group['censored'], 'value'].max()
-        # Median is censored if it's <= the maximum censored value
         is_censored = median_val <= max_censored
 
         if is_censored:
-            # Get the most common censor type among censored values
-            cen_type = group.loc[group['censored'], 'cen_type'].mode()[0]
+            # Safely get the most common censor type
+            cen_type_mode = group.loc[group['censored'], 'cen_type'].mode()
+            if len(cen_type_mode) == 0:
+                # All censored values are NaN, default to 'not'
+                cen_type = 'not'
+                is_censored = False
+            else:
+                cen_type = cen_type_mode.iloc[0]
         else:
             cen_type = 'not'
 
