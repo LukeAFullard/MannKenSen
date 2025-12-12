@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from ._utils import __preprocessing, _get_season_func, _is_datetime_like
+from ._utils import __preprocessing, _get_season_func, _is_datetime_like, _get_cycle_identifier
 
 def plot_seasonal_distribution(x_old, t_old, period=12, season_type='month', save_path='seasonal_distribution.png'):
     """
@@ -53,6 +53,102 @@ def plot_seasonal_distribution(x_old, t_old, period=12, season_type='month', sav
     plt.ylabel('Value')
 
     plt.savefig(save_path)
+    plt.close()
+
+
+def plot_inspection_data(data, save_path, value_col, time_col, time_increment, increment_map):
+    """
+    Creates and saves a 2x2 grid of data inspection plots.
+    """
+    # 1. Validate data
+    if 'censored' not in data.columns:
+        raise ValueError(
+            "Input data does not appear to be prepared for censored analysis. "
+            "Please run `prepare_censored_data` first to add 'censored' and 'cen_type' columns."
+        )
+
+    fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+    fig.suptitle(f"Data Inspection (Time Increment: {time_increment})", fontsize=16)
+
+    # Plot 1: Time series plot (consistent with plot_trend)
+    ax1 = axes[0, 0]
+    is_datetime = _is_datetime_like(data[time_col].values)
+    x_axis = pd.to_datetime(data[time_col]) if is_datetime else data[time_col]
+
+    censored_mask = data['censored']
+    ax1.scatter(x_axis[~censored_mask], data.loc[~censored_mask, value_col],
+                color='blue', label='Non-censored', marker='o', alpha=0.7)
+    if censored_mask.any():
+        ax1.scatter(x_axis[censored_mask], data.loc[censored_mask, value_col],
+                    color='red', label='Censored', marker='x')
+    ax1.set_title('Time Series Plot')
+    ax1.set_xlabel('Time')
+    ax1.set_ylabel('Value')
+    ax1.legend()
+    ax1.grid(True, which='both', linestyle='--', linewidth=0.5)
+    plt.setp(ax1.get_xticklabels(), rotation=30, ha='right')
+
+    # Get season and cycle columns for matrix plots
+    season_col = increment_map.get(time_increment)
+
+    if season_col is None or time_increment == 'none' or not is_datetime:
+        plot_title = "Cannot generate matrix plots.\n"
+        if not is_datetime:
+            plot_title += "Matrix plots require datetime-like time column."
+        else:
+            plot_title += "No suitable time increment found."
+
+        for ax in [axes[0, 1], axes[1, 0], axes[1, 1]]:
+            ax.text(0.5, 0.5, plot_title, ha='center', va='center', fontsize=12)
+            ax.set_xticks([])
+            ax.set_yticks([])
+    else:
+        plot_df = data.copy()
+        # Dynamically determine the cycle (e.g., year for monthly, week for daily)
+        plot_df['cycle'] = _get_cycle_identifier(plot_df[time_col], time_increment)
+
+        # Plot 2: Value matrix
+        ax2 = axes[0, 1]
+        try:
+            data_pivot = plot_df.pivot_table(
+                values=value_col, index='cycle', columns=season_col, aggfunc='median')
+            sns.heatmap(data_pivot, cmap='viridis', ax=ax2, cbar_kws={'label': 'Median Value'})
+            ax2.set_title(f'Median Value ({season_col.capitalize()} vs. Cycle)')
+            ax2.set_xlabel(season_col.capitalize())
+            ax2.set_ylabel('Cycle')
+        except Exception as e:
+            ax2.text(0.5, 0.5, f"Could not generate value matrix:\n{e}", ha='center', va='center')
+
+        # Plot 3: Censoring matrix
+        ax3 = axes[1, 0]
+        try:
+            cens_pivot = plot_df.pivot_table(
+                values='censored', index='cycle', columns=season_col,
+                aggfunc='any', fill_value=False)
+            sns.heatmap(cens_pivot.astype(int), cmap='coolwarm', ax=ax3,
+                       cbar_kws={'label': 'Censored (1=True)'}, vmin=0, vmax=1)
+            ax3.set_title('Censoring Status')
+            ax3.set_xlabel(season_col.capitalize())
+            ax3.set_ylabel('Cycle')
+        except Exception as e:
+            ax3.text(0.5, 0.5, f"Could not generate censoring matrix:\n{e}", ha='center', va='center')
+
+        # Plot 4: Sample count matrix
+        ax4 = axes[1, 1]
+        try:
+            count_pivot = plot_df.pivot_table(
+                values=value_col, index='cycle', columns=season_col,
+                aggfunc='count', fill_value=0)
+            sns.heatmap(count_pivot, cmap='Blues', ax=ax4,
+                       cbar_kws={'label': 'Sample Count'}, annot=True, fmt='g')
+            ax4.set_title('Sample Count')
+            ax4.set_xlabel(season_col.capitalize())
+            ax4.set_ylabel('Cycle')
+        except Exception as e:
+            ax4.text(0.5, 0.5, f"Could not generate count matrix:\n{e}", ha='center', va='center')
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close()
 
     return save_path
