@@ -2,9 +2,12 @@
 import numpy as np
 import pandas as pd
 import pytest
+import warnings
 from MannKenSen.analysis_notes import get_analysis_note, get_sens_slope_analysis_note
 from MannKenSen._utils import _sens_estimator_censored
 from MannKenSen.preprocessing import prepare_censored_data
+from MannKenSen.original_test import original_test
+from MannKenSen.seasonal_test import seasonal_test
 
 def test_get_analysis_note_all_na():
     data = pd.DataFrame({'value': [np.nan, np.nan, np.nan], 'censored': [False, False, False]})
@@ -100,3 +103,28 @@ def test_get_sens_slope_analysis_note_tied_non_censored():
     slopes = _sens_estimator_censored(data['value'].values, t, data['cen_type'].values)
     note = get_sens_slope_analysis_note(slopes, t, data['cen_type'].values)
     assert note == "WARNING: Sen slope based on tied non-censored values"
+
+def test_original_test_min_size_warning():
+    """Test that original_test issues a warning for small sample sizes."""
+    x = [1, 2, 3]
+    t = [1, 2, 3]
+    with pytest.warns(UserWarning, match="Sample size .* is below recommended minimum"):
+        original_test(x, t, min_size=4)
+
+    # Test that no warning is issued when min_size is None
+    with warnings.catch_warnings(record=True) as record:
+        original_test(x, t, min_size=None)
+        assert len(record) == 0
+
+def test_seasonal_test_min_size_warning():
+    """Test that seasonal_test issues a warning for small seasonal sample sizes."""
+    # Season 1 has 3 values, Season 2 has 2
+    x = [1, 2, 3, 4, 5]
+    t = [1, 2, 3, 13, 14] # Using numeric time for simplicity
+    with pytest.warns(UserWarning, match="Minimum season size .* is below recommended minimum"):
+        seasonal_test(x, t, period=12, min_size_per_season=3)
+
+    # Test that no warning is issued when min_size_per_season is None
+    with warnings.catch_warnings(record=True) as record:
+        seasonal_test(x, t, period=12, min_size_per_season=None)
+        assert len(record) == 0

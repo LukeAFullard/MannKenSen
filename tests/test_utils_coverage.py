@@ -6,8 +6,8 @@ import pandas as pd
 import numpy as np
 from MannKenSen._utils import (_is_datetime_like, _get_season_func,
                              _get_cycle_identifier, _rle_lengths,
-                             __missing_values_analysis,
-                             _mk_score_and_var_censored)
+                             __missing_values_analysis, _z_score,
+                             _mk_score_and_var_censored, _aggregate_censored_median)
 
 class TestUtilsCoverage(unittest.TestCase):
 
@@ -46,10 +46,57 @@ class TestUtilsCoverage(unittest.TestCase):
         t = np.array([1, 2, 3])
         censored = np.array([False, False, False])
         cen_type = np.array(['not', 'not', 'not'])
-        s, var_s, D = _mk_score_and_var_censored(x, t, censored, cen_type)
+        s, var_s, D, _ = _mk_score_and_var_censored(x, t, censored, cen_type)
         self.assertEqual(s, 0)
         self.assertGreaterEqual(var_s, 0)
-        self.assertEqual(D, 3)
+        self.assertEqual(D, 0)
+
+class TestAggregateCensoredMedian(unittest.TestCase):
+
+    def test_empty_group(self):
+        """Test that an empty group returns an empty DataFrame."""
+        group = pd.DataFrame({'value': [], 'censored': [], 'cen_type': [], 't_original': [], 't': []})
+        result = _aggregate_censored_median(group, is_datetime=False)
+        self.assertTrue(result.empty)
+
+    def test_nan_cen_type_mode(self):
+        """Test that a group with only NaN cen_types for censored data is handled."""
+        group = pd.DataFrame({
+            'value': [1, 2, 3],
+            'censored': [True, True, False],
+            'cen_type': [np.nan, np.nan, 'not'],
+            't_original': [1, 2, 3],
+            't': [1, 2, 3]
+        })
+        # The median is 2, and the max censored value is 2, so `is_censored` would be true.
+        # However, since the mode of cen_type for censored data is empty, it should
+        # fall back to 'not' and `is_censored` should become False.
+        result = _aggregate_censored_median(group, is_datetime=False)
+        self.assertIsInstance(result, pd.DataFrame)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result['value'].iloc[0], 2.0)
+        self.assertFalse(result['censored'].iloc[0])
+        self.assertEqual(result['cen_type'].iloc[0], 'not')
+
+class TestNumericalStability(unittest.TestCase):
+
+    def test_z_score_zero_variance(self):
+        """Test that _z_score issues a warning for near-zero variance."""
+        with self.assertWarnsRegex(UserWarning, "Variance near zero"):
+            result = _z_score(s=10, var_s=1e-12)
+            self.assertEqual(result, 0)
+
+    def test_mk_score_and_var_censored_zero_denominator(self):
+        """Test that _mk_score_and_var_censored warns for a near-zero denominator."""
+        # Create a case with tied data that leads to D=0
+        x = [1, 1, 1]
+        t = [1, 2, 3]
+        censored = [False, False, False]
+        cen_type = ['not', 'not', 'not']
+        with self.assertWarnsRegex(UserWarning, "Denominator near zero"):
+            s, var_s, D, Tau = _mk_score_and_var_censored(x, t, censored, cen_type, tau_method='b')
+            self.assertEqual(Tau, 0)
+
 
 if __name__ == '__main__':
     unittest.main()

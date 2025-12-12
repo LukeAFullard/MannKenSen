@@ -55,6 +55,8 @@ def plot_seasonal_distribution(x_old, t_old, period=12, season_type='month', sav
     plt.savefig(save_path)
     plt.close()
 
+    return save_path
+
 
 def plot_inspection_data(data, save_path, value_col, time_col, time_increment, increment_map):
     """

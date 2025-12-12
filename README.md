@@ -75,7 +75,7 @@ print(result)
 
 The `MannKenSen` package provides modified versions of the Mann-Kendall test and Sen's slope estimator to handle unequally spaced time series data.
 
-### `original_test(x, t, alpha=0.05, hicensor=False, plot_path=None, lt_mult=0.5, gt_mult=1.1, sens_slope_method='lwp', tau_method='b', agg_method='none')`
+### `original_test(x, t, alpha=0.05, hicensor=False, plot_path=None, lt_mult=0.5, gt_mult=1.1, sens_slope_method='lwp', tau_method='b', agg_method='none', min_size=10)`
 
 This function performs the Mann-Kendall test on unequally spaced time series data.
 
@@ -94,6 +94,7 @@ This function performs the Mann-Kendall test on unequally spaced time series dat
 - `agg_method` (str): The method for aggregating data at tied timestamps.
   - `'none'` (default): No aggregation is performed. A warning is issued if ties are present, as this can affect the Sen's slope calculation.
   - `'median'`, `'robust_median'`, `'middle'`: See `seasonal_test` for descriptions. It is recommended to use an aggregation method when tied timestamps are present.
+- `min_size` (int): The minimum sample size required to perform the test. If the number of data points is below this value, a `UserWarning` is issued. Default is `10`. Set to `None` to disable this check.
 
 **Output:**
 A named tuple with the following fields:
@@ -112,7 +113,7 @@ A named tuple with the following fields:
 - `Cd`: The confidence that the trend is decreasing.
 
 
-### `seasonal_test(x, t, period=12, alpha=0.05, agg_method='none', season_type='month', hicensor=False, plot_path=None, lt_mult=0.5, gt_mult=1.1, sens_slope_method='lwp', tau_method='b')`
+### `seasonal_test(x, t, period=12, alpha=0.05, agg_method='none', season_type='month', hicensor=False, plot_path=None, lt_mult=0.5, gt_mult=1.1, sens_slope_method='lwp', tau_method='b', time_method='absolute', min_size_per_season=5)`
 
 This function performs the seasonal Mann-Kendall test on unequally spaced time series data.
 
@@ -135,6 +136,10 @@ This function performs the seasonal Mann-Kendall test on unequally spaced time s
   - `'lwp'` (default): Sets ambiguous slopes to 0.
   - `'nan'`: Sets ambiguous slopes to `np.nan`.
 - `tau_method` (str): The method for calculating Kendall's Tau ('a' or 'b'). Default is `'b'`, which accounts for ties in the data and is the recommended method.
+- `time_method` (str): The method for handling timestamps in the seasonal test.
+  - `'absolute'` (default): Uses the precise numeric timestamps. This is statistically robust for unequally spaced data.
+  - `'rank'`: Uses cycle-based ranks (1, 2, 3,...) for time, matching the LWP-TRENDS R script's methodology.
+- `min_size_per_season` (int): The minimum number of observations required per season. If any season has fewer data points, a `UserWarning` is issued. Default is `5`. Set to `None` to disable this check.
 
 **Output:**
 A named tuple with the same fields as `original_test`.

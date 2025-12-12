@@ -210,3 +210,51 @@ def test_seasonality_test_insufficient_unique_values():
     assert not result.is_seasonal
     assert np.isnan(result.h_statistic)
     assert np.isnan(result.p_value)
+
+def test_seasonal_time_method():
+    """
+    Validates that the `time_method` parameter in `seasonal_test` produces
+    different results for 'absolute' and 'rank' methods.
+    """
+    # Create a dataset with a known trend and some irregularity in spacing
+    # to highlight the difference between the time methods.
+    dates = pd.to_datetime([
+        '2020-01-10', '2020-02-15', '2020-03-01', # Early in the month
+        '2021-01-25', '2021-02-20', '2021-03-28', # Late in the month
+        '2022-01-15', '2022-02-15', '2022-03-15', # Middle of the month
+        '2023-01-05', '2023-02-10', '2023-03-20',
+    ])
+    values = np.arange(len(dates)) + np.random.normal(0, 1, len(dates))
+
+    # --- Absolute method (default) ---
+    # This method should consider the precise timestamps.
+    result_abs = seasonal_test(
+        x=values,
+        t=dates,
+        season_type='month',
+        time_method='absolute'
+    )
+    assert result_abs.trend == 'increasing'
+
+    # --- Rank method (LWP-TRENDS style) ---
+    # This method should rank by year, ignoring the intra-month spacing.
+    result_rank = seasonal_test(
+        x=values,
+        t=dates,
+        season_type='month',
+        time_method='rank'
+    )
+    assert result_rank.trend == 'increasing'
+
+    # --- Verification ---
+    # The statistical results (slope and variance) should be different
+    # because the underlying time vectors are treated differently. The S-statistic
+    # is expected to be the same for this test case because the chronological
+    # order of the data points within each season does not change.
+    assert result_abs.slope != result_rank.slope, "Sen's slope should differ between time methods."
+    assert result_abs.var_s == result_rank.var_s, "Variance should be the same because it is rank-based."
+    assert result_abs.s == result_rank.s, "S-statistic should be the same for this test case."
+
+    # Test that an invalid method raises an error
+    with pytest.raises(ValueError):
+        seasonal_test(x=values, t=dates, season_type='month', time_method='invalid_method')
