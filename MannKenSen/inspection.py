@@ -7,11 +7,12 @@ and determine the most suitable time increment for analysis.
 import pandas as pd
 import numpy as np
 from collections import namedtuple
+from .plotting import plot_inspection_data
 
 def inspect_trend_data(data, trend_period=None, end_year=None,
                      prop_year_tol=0.9, prop_incr_tol=0.9,
                      return_summary=False, value_col='value', time_col='t',
-                     custom_increments=None):
+                     custom_increments=None, plot=False, plot_path=None):
     """
     Inspects data availability over a trend period and determines the best time
     increment for trend analysis.
@@ -40,6 +41,9 @@ def inspect_trend_data(data, trend_period=None, end_year=None,
                                             is used. Supported increments are:
                                             'annually', 'bi-annually', 'quarterly',
                                             'bi-monthly', 'monthly', 'weekly', 'daily'.
+        plot (bool): If True, generates and saves a set of inspection plots.
+                     Requires `plot_path` to be set.
+        plot_path (str, optional): The file path to save the inspection plots.
 
     Returns:
         pd.DataFrame or namedtuple:
@@ -161,6 +165,28 @@ def inspect_trend_data(data, trend_period=None, end_year=None,
         df_filtered['time_increment'] = df_filtered[increment_col_name]
     else:
         df_filtered['time_increment'] = 'none'
+
+    # --- 5. Generate Plots if Requested ---
+    if plot:
+        if not plot_path:
+            raise ValueError("A 'plot_path' must be provided to save the plots.")
+
+        # Re-join original data to get all necessary columns for plotting,
+        # especially 'censored' and 'cen_type' if they exist.
+        plot_df = df_filtered.copy()
+        if 'censored' in data.columns and 'censored' not in plot_df.columns:
+             # Use a left merge to preserve the filtered rows
+             plot_df = pd.merge(plot_df, data[['t', 'censored', 'cen_type']], on='t', how='left')
+
+        plot_inspection_data(
+            data=plot_df,
+            save_path=plot_path,
+            value_col=value_col,
+            time_col=time_col,
+            time_increment=best_time_incr,
+            increment_map=increment_map
+        )
+
 
     # Clean up helper columns
     df_filtered.drop(columns=['year', 'month', 'quarter', 'bi-month', 'bi-annual', 'week', 'day'], inplace=True)
