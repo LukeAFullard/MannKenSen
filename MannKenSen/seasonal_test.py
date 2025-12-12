@@ -146,6 +146,13 @@ def seasonal_test(x, t, period=12, alpha=0.05, agg_method='none', season_type='m
         n = len(season_x)
 
         if n > 1:
+            # DEVELOPER NOTE:
+            # This is a deliberate methodological choice that differs from
+            # the LWP-TRENDS R script. The R script effectively ranks time
+            # based on the year/cycle (e.g., 1, 2, 3,...), standardizing the
+            # time steps. This implementation uses the true numeric timestamps
+            # (`season_t`), which is more statistically precise for unequally
+            # spaced data and aligns with the core purpose of this library.
             s_season, var_s_season, d_season = _mk_score_and_var_censored(
                 season_x, season_t, season_censored, season_cen_type,
                 tau_method=tau_method
