@@ -13,11 +13,11 @@ from ._utils import (__mk_score, __variance_s, __z_score, __p_value,
                    __mk_probability, _get_season_func,
                    _get_cycle_identifier, _mk_score_and_var_censored,
                    _sens_estimator_censored, _aggregate_censored_median,
-                   _prepare_data)
+                   _prepare_data, _aggregate_by_group)
 from .plotting import plot_trend
 
 
-def seasonal_test(x, t, period=12, alpha=0.05, agg_method='none', season_type='month', hicensor=False, plot_path=None, lt_mult=0.5, gt_mult=1.1, sens_slope_method='lwp'):
+def seasonal_test(x, t, period=12, alpha=0.05, agg_method='none', season_type='month', hicensor=False, plot_path=None, lt_mult=0.5, gt_mult=1.1, sens_slope_method='lwp', tau_method='b'):
     """
     Seasonal Mann-Kendall test for unequally spaced time series.
     Input:
@@ -46,6 +46,8 @@ def seasonal_test(x, t, period=12, alpha=0.05, agg_method='none', season_type='m
         sens_slope_method (str): The method to use for handling ambiguous slopes
                                  in censored data. See `_sens_estimator_censored`
                                  for details.
+        tau_method (str): The method for calculating Kendall's Tau ('a' or 'b').
+                          Default is 'b', which accounts for ties.
     Output:
         A namedtuple containing the following fields:
         - trend: The trend of the data ('increasing', 'decreasing', or 'no trend').
@@ -88,33 +90,10 @@ def seasonal_test(x, t, period=12, alpha=0.05, agg_method='none', season_type='m
         data_filtered['cycle'] = cycles
         data_filtered['season_agg'] = seasons_agg
 
-        agg_data_list = []
-        for _, group in data_filtered.groupby(['cycle', 'season_agg']):
-            if len(group) == 1:
-                agg_data_list.append(group)
-            else:
-                if agg_method == 'median':
-                    if group['censored'].any():
-                        warnings.warn(
-                            "The 'median' aggregation method uses a simple heuristic for censored data, "
-                            "which may not be statistically robust. Consider using 'robust_median' for "
-                            "more accurate censored data aggregation.", UserWarning)
-                    median_val = group['value'].median()
-                    new_row = {
-                        'value': median_val,
-                        't_original': group['t_original'].median() if is_datetime else np.median(group['t_original']),
-                        't': np.median(group['t']),
-                        'censored': median_val <= group[group['censored']]['value'].max() if group['censored'].any() else False,
-                        'cen_type': group['cen_type'].mode()[0]
-                    }
-                    agg_data_list.append(pd.DataFrame([new_row]))
-                elif agg_method == 'robust_median':
-                    agg_data_list.append(_aggregate_censored_median(group, is_datetime))
-                elif agg_method == 'middle':
-                    t_numeric_group = group['t'].to_numpy()
-                    closest_idx = np.argmin(np.abs(t_numeric_group - np.mean(t_numeric_group)))
-                    agg_data_list.append(group.iloc[[closest_idx]])
-
+        agg_data_list = [
+            _aggregate_by_group(group, agg_method, is_datetime)
+            for _, group in data_filtered.groupby(['cycle', 'season_agg'])
+        ]
         data_filtered = pd.concat(agg_data_list, ignore_index=True)
 
 
@@ -144,15 +123,20 @@ def seasonal_test(x, t, period=12, alpha=0.05, agg_method='none', season_type='m
         n = len(season_x)
 
         if n > 1:
-            if np.any(season_censored):
-                s_season, var_s_season, d_season = _mk_score_and_var_censored(season_x, season_t, season_censored, season_cen_type)
-                s += s_season
-                var_s += var_s_season
-                denom += d_season
-            else:
-                s += __mk_score(season_x, n)
-                var_s += __variance_s(season_x, n)
-                denom += 0.5 * n * (n - 1)
+            # DEVELOPER NOTE:
+            # This is a deliberate methodological choice that differs from
+            # the LWP-TRENDS R script. The R script effectively ranks time
+            # based on the year/cycle (e.g., 1, 2, 3,...), standardizing the
+            # time steps. This implementation uses the true numeric timestamps
+            # (`season_t`), which is more statistically precise for unequally
+            # spaced data and aligns with the core purpose of this library.
+            s_season, var_s_season, d_season = _mk_score_and_var_censored(
+                season_x, season_t, season_censored, season_cen_type,
+                tau_method=tau_method
+            )
+            s += s_season
+            var_s += var_s_season
+            denom += d_season
 
             if np.any(season_censored):
                 all_slopes.extend(_sens_estimator_censored(

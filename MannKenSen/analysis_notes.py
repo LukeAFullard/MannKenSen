@@ -5,17 +5,7 @@ the user about potential issues with their data that could affect
 trend analysis results.
 """
 import numpy as np
-
-def _rle_lengths(a):
-    """
-    Calculates the lengths of runs of equal values in an array.
-    Equivalent to R's `rle(x)$lengths`.
-    """
-    if len(a) == 0:
-        return np.array([], dtype=int)
-    y = a[1:] != a[:-1]
-    i = np.append(np.where(y), len(a) - 1)
-    return np.diff(np.append(-1, i))
+from ._utils import _rle_lengths
 
 
 def get_analysis_note(data, values_col='value', censored_col='censored',

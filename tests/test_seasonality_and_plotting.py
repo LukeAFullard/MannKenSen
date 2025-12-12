@@ -192,3 +192,21 @@ def test_plot_seasonal_distribution_insufficient_data():
     t = [pd.to_datetime('2020-01-01')]
     result = plot_seasonal_distribution(x, t, save_path='test.png')
     assert result is None
+
+def test_seasonality_test_insufficient_unique_values():
+    """
+    Test seasonality_test returns no trend if a season has enough points
+    but not enough unique values.
+    """
+    # Create a dataset where one season has 5 identical points
+    t = pd.to_datetime(pd.date_range(start='2020-01-01', periods=60, freq='ME'))
+    # Convert to numpy array to make it mutable
+    x = np.array(10 * np.sin(2 * np.pi * t.month / 12) + 50 + np.random.rand(60))
+
+    # Corrupt the data for January (month=1) to have only one unique value
+    x[t.month == 1] = 42
+
+    result = seasonality_test(x, t)
+    assert not result.is_seasonal
+    assert np.isnan(result.h_statistic)
+    assert np.isnan(result.p_value)

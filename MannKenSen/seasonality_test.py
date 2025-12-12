@@ -57,9 +57,14 @@ def seasonality_test(x_old, t_old, period=12, alpha=0.05, season_type='month'):
 
     seasonal_data = [x[seasons == s] for s in unique_seasons]
 
-    # The test requires at least 5 observations in each group
-    if any(len(group) < 5 for group in seasonal_data):
-        return res(np.nan, np.nan, False)
+    # LWP-TRENDS script checks for data sufficiency within each season.
+    for group in seasonal_data:
+        # 1. Each season must have at least 3 non-NA values.
+        if len(group) < 3:
+            return res(np.nan, np.nan, False)
+        # 2. Each season must have at least 2 unique values.
+        if len(np.unique(group)) < 2:
+            return res(np.nan, np.nan, False)
 
     h_statistic, p_value = kruskal(*seasonal_data)
 

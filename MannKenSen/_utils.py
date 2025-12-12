@@ -77,17 +77,18 @@ def _get_cycle_identifier(dt_series, season_type):
         return dt_accessor.year.to_numpy()
 
 def _rle_lengths(a):
-    """Calculates the lengths of runs of equal values in an array."""
+    """
+    Calculates the lengths of runs of equal values in an array.
+    Equivalent to R's `rle(x)$lengths`.
+    """
     if len(a) == 0:
         return np.array([], dtype=int)
-    # Pad the array to detect changes at the start and end
-    # and find the indices where the array changes
-    pad = np.array([False])
-    idx = np.flatnonzero(np.concatenate((pad, a[1:] != a[:-1], pad)))
-    return np.diff(idx)
+    y = a[1:] != a[:-1]
+    i = np.append(np.where(y), len(a) - 1)
+    return np.diff(np.append(-1, i))
 
 
-def _mk_score_and_var_censored(x, t, censored, cen_type):
+def _mk_score_and_var_censored(x, t, censored, cen_type, tau_method='b'):
     """
     Calculates the Mann-Kendall S statistic and its variance for censored data.
     This is a Python translation of the GetKendal function from the LWP-TRENDS
@@ -146,13 +147,46 @@ def _mk_score_and_var_censored(x, t, censored, cen_type):
     xplus = (cx[:, np.newaxis].astype(int) + cx.astype(int))
     xplus[xplus <= 1] = 0
     xplus[xplus > 1] = 1
+    tplus = xplus * np.abs(np.sign(diffx))
+
 
     itot = np.sum(np.triu(signyx * (1 - xplus), k=1))
     kenS = itot
-    D = n * (n - 1) / 2.0
 
-    # 5. Variance Calculation (adapted from NADA::cenken)
+    # 5. D (denominator) calculation for Tau
+    J = n * (n - 1) / 2.0
+    if tau_method == 'a':
+        D = J
+    else: # Default to Tau-b
+        # tt: number of tied pairs in x
+        tt = (np.sum(1 - np.abs(np.sign(diffx))) - n) / 2.0
+        tt += np.sum(cix) / 2.0
+        tt += np.sum(tplus) / 2.0
+
+        # uu: number of tied pairs in y (time)
+        diffcy = cy[:, np.newaxis].astype(int) - cy.astype(int)
+        ciy = np.sign(diffcy) * np.sign(diffy)
+        ciy[ciy <= 0] = 0
+        uu = (np.sum(1 - np.abs(np.sign(diffy))) - n) / 2.0
+        uu += np.sum(ciy) / 2.0
+        yplus = (cy[:, np.newaxis].astype(int) + cy.astype(int))
+        yplus[yplus <= 1] = 0
+        yplus[yplus > 1] = 1
+        uplus = yplus * np.abs(np.sign(diffy))
+        uu += np.sum(uplus) / 2.0
+
+        tau_denom = np.sqrt(J - tt) * np.sqrt(J - uu)
+        D = tau_denom if tau_denom > 0 else J
+
+
+    # 6. Variance Calculation (adapted from NADA::cenken)
     varS = n * (n - 1) * (2 * n + 5) / 18.0
+
+    # Add tie correction for x variable (previously in __variance_s)
+    unique_x, tp = np.unique(x, return_counts=True)
+    if n != len(unique_x):
+        varS -= np.sum(tp * (tp - 1) * (2 * tp + 5)) / 18.0
+
     intg = np.arange(1, n + 1)
 
     dorder_x = np.argsort(dupx)
@@ -403,31 +437,36 @@ def __confidence_intervals(slopes, var_s, alpha):
 def _aggregate_censored_median(group, is_datetime):
     """
     Computes a robust median for a group of observations which may contain
-    censored data. It identifies the median observation and returns its
-    properties.
+    censored data, following the LWP-TRENDS R script logic.
     """
     n = len(group)
     if n == 0:
         return None
 
-    # If no censored data, standard median is robust.
+    # Compute median value
+    median_val = group['value'].median()
+
+    # Determine if median is censored (R logic)
     if not group['censored'].any():
-        median_val = group['value'].median()
-        row_data = {
-            'value': median_val,
-            'censored': False,
-            'cen_type': 'not'
-        }
+        is_censored = False
+        cen_type = 'not'
     else:
-        # Sort by value to find the median observation. `mergesort` is stable.
-        sorted_group = group.sort_values(by='value', kind='mergesort')
-        # The median observation is the upper of the two middle values for even n
-        median_obs = sorted_group.iloc[n // 2]
-        row_data = {
-            'value': median_obs['value'],
-            'censored': median_obs['censored'],
-            'cen_type': median_obs['cen_type']
-        }
+        # Get maximum censored value
+        max_censored = group.loc[group['censored'], 'value'].max()
+        # Median is censored if it's <= the maximum censored value
+        is_censored = median_val <= max_censored
+
+        if is_censored:
+            # Get the most common censor type among censored values
+            cen_type = group.loc[group['censored'], 'cen_type'].mode()[0]
+        else:
+            cen_type = 'not'
+
+    row_data = {
+        'value': median_val,
+        'censored': is_censored,
+        'cen_type': cen_type,
+    }
 
     # Always aggregate time using the median of the original timestamps
     row_data['t_original'] = group['t_original'].median() if is_datetime else np.median(group['t_original'])
@@ -471,3 +510,37 @@ def _prepare_data(x, t, hicensor):
         data_filtered.loc[hi_censor_mask, 'value'] = max_lt_censor
 
     return data_filtered, is_datetime
+
+
+def _aggregate_by_group(group, agg_method, is_datetime):
+    """
+    Aggregates a group of data points using the specified method.
+    """
+    if len(group) <= 1:
+        return group
+
+    if agg_method == 'median':
+        if group['censored'].any():
+            import warnings
+            warnings.warn(
+                "The 'median' aggregation method uses a simple heuristic for censored data, "
+                "which may not be statistically robust. Consider using 'robust_median' for "
+                "more accurate censored data aggregation.", UserWarning)
+        median_val = group['value'].median()
+        is_censored = median_val <= group[group['censored']]['value'].max() if group['censored'].any() else False
+
+        new_row = {
+            'value': median_val,
+            't_original': group['t_original'].median() if is_datetime else np.median(group['t_original']),
+            't': np.median(group['t']),
+            'censored': is_censored,
+            'cen_type': group.loc[group['censored'], 'cen_type'].mode()[0] if is_censored else 'not'
+        }
+        return pd.DataFrame([new_row])
+    elif agg_method == 'robust_median':
+        return _aggregate_censored_median(group, is_datetime)
+    elif agg_method == 'middle':
+        t_numeric_group = group['t'].to_numpy()
+        closest_idx = np.argmin(np.abs(t_numeric_group - np.mean(t_numeric_group)))
+        return group.iloc[[closest_idx]]
+    return group

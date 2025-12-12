@@ -4,16 +4,18 @@ and Sen's slope estimator to handle unequally spaced time series data.
 """
 from collections import namedtuple
 import numpy as np
+import pandas as pd
+import warnings
 from collections import namedtuple
 from ._utils import (__mk_score, __variance_s, __z_score,
                    __p_value, __sens_estimator_unequal_spacing,
                    __confidence_intervals, __mk_probability,
                    _mk_score_and_var_censored, _sens_estimator_censored,
-                   _prepare_data)
+                   _prepare_data, _aggregate_by_group)
 from .plotting import plot_trend
 
 
-def original_test(x, t, alpha=0.05, hicensor=False, plot_path=None, lt_mult=0.5, gt_mult=1.1, sens_slope_method='lwp'):
+def original_test(x, t, alpha=0.05, hicensor=False, plot_path=None, lt_mult=0.5, gt_mult=1.1, sens_slope_method='lwp', tau_method='b', agg_method='none'):
     """
     Mann-Kendall test for unequally spaced time series.
     Input:
@@ -23,13 +25,21 @@ def original_test(x, t, alpha=0.05, hicensor=False, plot_path=None, lt_mult=0.5,
         hicensor (bool): If True, applies the high-censor rule, where all
                          values below the highest left-censor limit are
                          treated as censored at that limit.
-        plot_path (str, optional): If provided, saves a plot of the trend
-                                   analysis to this file path.
+        plot_path (str, optional): If provided, a plot of the trend analysis
+                                   is saved to this file path.
         lt_mult (float): The multiplier for left-censored data (default 0.5).
         gt_mult (float): The multiplier for right-censored data (default 1.1).
         sens_slope_method (str): The method to use for handling ambiguous slopes
                                  in censored data. See `_sens_estimator_censored`
                                  for details.
+        tau_method (str): The method for calculating Kendall's Tau ('a' or 'b').
+                          Default is 'b', which accounts for ties.
+        agg_method (str): The method for aggregating data at tied timestamps.
+                          'none' (default): No aggregation is performed. A warning
+                                            is issued if ties are present, as this
+                                            can affect the Sen's slope calculation.
+                          'median', 'robust_median', 'middle': See `seasonal_test`
+                                                              for descriptions.
     Output:
         trend, h, p, z, Tau, s, var_s, slope, intercept, lower_ci, upper_ci, C, Cd
 
@@ -51,12 +61,23 @@ def original_test(x, t, alpha=0.05, hicensor=False, plot_path=None, lt_mult=0.5,
     """
     res = namedtuple('Mann_Kendall_Test', ['trend', 'h', 'p', 'z', 'Tau', 's', 'var_s', 'slope', 'intercept', 'lower_ci', 'upper_ci', 'C', 'Cd'])
 
-    data_filtered, _ = _prepare_data(x, t, hicensor)
+    data_filtered, is_datetime = _prepare_data(x, t, hicensor)
 
-    # Check for tied timestamps
+    # Handle tied timestamps
     if len(data_filtered['t']) != len(np.unique(data_filtered['t'])):
-        import warnings
-        warnings.warn("Tied timestamps detected in the time vector `t`. Corresponding data points will be excluded from the Sen's slope calculation.", UserWarning)
+        if agg_method == 'none':
+            warnings.warn(
+                "Tied timestamps detected in the time vector `t`. "
+                "The Sen's slope calculation may be affected. "
+                "Consider using an aggregation method via the `agg_method` parameter.",
+                UserWarning
+            )
+        else:
+            agg_data_list = [
+                _aggregate_by_group(group, agg_method, is_datetime)
+                for _, group in data_filtered.groupby('t')
+            ]
+            data_filtered = pd.concat(agg_data_list, ignore_index=True)
 
     x_filtered = data_filtered['value'].to_numpy()
     t_filtered = data_filtered['t'].to_numpy()
@@ -67,13 +88,11 @@ def original_test(x, t, alpha=0.05, hicensor=False, plot_path=None, lt_mult=0.5,
     if len(x_filtered) < 2:
         return res('no trend', False, np.nan, 0, 0, 0, 0, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan)
 
-    if np.any(censored_filtered):
-        s, var_s, D = _mk_score_and_var_censored(x_filtered, t_filtered, censored_filtered, cen_type_filtered)
-        Tau = s / D if D > 0 else 0
-    else:
-        s = __mk_score(x_filtered, len(x_filtered))
-        var_s = __variance_s(x_filtered, len(x_filtered))
-        Tau = s / (0.5 * len(x_filtered) * (len(x_filtered) - 1))
+    s, var_s, D = _mk_score_and_var_censored(
+        x_filtered, t_filtered, censored_filtered, cen_type_filtered,
+        tau_method=tau_method
+    )
+    Tau = s / D if D > 0 else 0
 
     z = __z_score(s, var_s)
     p, h, trend = __p_value(z, alpha)
