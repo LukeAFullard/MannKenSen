@@ -10,6 +10,7 @@ import pandas as pd
 from scipy.stats import norm, rankdata
 
 
+EPSILON = 1e-10
 
 
 def _is_datetime_like(x):
@@ -109,6 +110,10 @@ def _mk_score_and_var_censored(x, t, censored, cen_type, tau_method='b'):
     This is a Python translation of the GetKendal function from the LWP-TRENDS
     R script, which is adapted from the NADA package (Helsel, 2012).
     """
+    x = np.asarray(x)
+    t = np.asarray(t)
+    censored = np.asarray(censored)
+    cen_type = np.asarray(cen_type)
     # 1. Special handling for right-censored ('gt') data
     x_mod = x.copy()
     censored_mod = censored.copy()
@@ -138,7 +143,7 @@ def _mk_score_and_var_censored(x, t, censored, cen_type, tau_method='b'):
     n = len(xx)
 
     if n < 2:
-        return 0, 0, 0
+        return 0, 0, 0, 0
 
     # 3. Calculate delx and dely to break ties
     unique_xx = np.unique(xx)
@@ -191,7 +196,7 @@ def _mk_score_and_var_censored(x, t, censored, cen_type, tau_method='b'):
         uu += np.sum(uplus) / 2.0
 
         tau_denom = np.sqrt(J - tt) * np.sqrt(J - uu)
-        D = tau_denom if tau_denom > 0 else J
+        D = tau_denom
 
 
     # 6. Variance Calculation (adapted from NADA::cenken)
@@ -266,7 +271,15 @@ def _mk_score_and_var_censored(x, t, censored, cen_type, tau_method='b'):
     delu = (x1_u + y1_u) / 18.0 - term2_u - term3_u
 
     varS = varS - delc - deluc - delu
-    return kenS, varS, D
+
+    if abs(D) > EPSILON:
+        Tau = kenS / D
+    else:
+        Tau = 0
+        import warnings
+        warnings.warn("Denominator near zero in Tau calculation", UserWarning)
+
+    return kenS, varS, D, Tau
 
 
 # Helper functions from the original pymannkendall.py
@@ -309,9 +322,12 @@ def __variance_s(x, n):
         return (n * (n - 1) * (2 * n + 5)) / 18
     return (n * (n - 1) * (2 * n + 5) - np.sum(tp * (tp - 1) * (2 * tp + 5))) / 18
 
-def __z_score(s, var_s):
-    if var_s == 0:
+def _z_score(s, var_s):
+    if var_s < EPSILON:
+        import warnings
+        warnings.warn("Variance near zero, Z-score may be unreliable", UserWarning)
         return 0
+
     if s > 0:
         return (s - 1) / np.sqrt(var_s)
     return (s + 1) / np.sqrt(var_s) if s < 0 else 0
