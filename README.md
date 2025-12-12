@@ -75,7 +75,7 @@ print(result)
 
 The `MannKenSen` package provides modified versions of the Mann-Kendall test and Sen's slope estimator to handle unequally spaced time series data.
 
-### `original_test(x, t, alpha=0.05, hicensor=False, plot_path=None, lt_mult=0.5, gt_mult=1.1, sens_slope_method='lwp')`
+### `original_test(x, t, alpha=0.05, hicensor=False, plot_path=None, lt_mult=0.5, gt_mult=1.1, sens_slope_method='lwp', tau_method='b')`
 
 This function performs the Mann-Kendall test on unequally spaced time series data.
 
@@ -90,6 +90,7 @@ This function performs the Mann-Kendall test on unequally spaced time series dat
 - `sens_slope_method` (str): The method for handling ambiguous slopes in censored data.
   - `'lwp'` (default): Sets ambiguous slopes to 0, mimicking the LWP-TRENDS R script.
   - `'nan'`: Sets ambiguous slopes to `np.nan`, a more statistically neutral approach.
+- `tau_method` (str): The method for calculating Kendall's Tau ('a' or 'b'). Default is `'b'`, which accounts for ties in the data and is the recommended method.
 
 **Output:**
 A named tuple with the following fields:
@@ -108,7 +109,7 @@ A named tuple with the following fields:
 - `Cd`: The confidence that the trend is decreasing.
 
 
-### `seasonal_test(x, t, period=12, alpha=0.05, agg_method='none', season_type='month', hicensor=False, plot_path=None, lt_mult=0.5, gt_mult=1.1, sens_slope_method='lwp')`
+### `seasonal_test(x, t, period=12, alpha=0.05, agg_method='none', season_type='month', hicensor=False, plot_path=None, lt_mult=0.5, gt_mult=1.1, sens_slope_method='lwp', tau_method='b')`
 
 This function performs the seasonal Mann-Kendall test on unequally spaced time series data.
 
@@ -130,6 +131,7 @@ This function performs the seasonal Mann-Kendall test on unequally spaced time s
 - `sens_slope_method` (str): The method for handling ambiguous slopes in censored data.
   - `'lwp'` (default): Sets ambiguous slopes to 0.
   - `'nan'`: Sets ambiguous slopes to `np.nan`.
+- `tau_method` (str): The method for calculating Kendall's Tau ('a' or 'b'). Default is `'b'`, which accounts for ties in the data and is the recommended method.
 
 **Output:**
 A named tuple with the same fields as `original_test`.
