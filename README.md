@@ -75,7 +75,7 @@ print(result)
 
 The `MannKenSen` package provides modified versions of the Mann-Kendall test and Sen's slope estimator to handle unequally spaced time series data.
 
-### `original_test(x, t, alpha=0.05, hicensor=False, plot_path=None, lt_mult=0.5, gt_mult=1.1, sens_slope_method='lwp', tau_method='b')`
+### `original_test(x, t, alpha=0.05, hicensor=False, plot_path=None, lt_mult=0.5, gt_mult=1.1, sens_slope_method='lwp', tau_method='b', agg_method='none')`
 
 This function performs the Mann-Kendall test on unequally spaced time series data.
 
@@ -91,6 +91,9 @@ This function performs the Mann-Kendall test on unequally spaced time series dat
   - `'lwp'` (default): Sets ambiguous slopes to 0, mimicking the LWP-TRENDS R script.
   - `'nan'`: Sets ambiguous slopes to `np.nan`, a more statistically neutral approach.
 - `tau_method` (str): The method for calculating Kendall's Tau ('a' or 'b'). Default is `'b'`, which accounts for ties in the data and is the recommended method.
+- `agg_method` (str): The method for aggregating data at tied timestamps.
+  - `'none'` (default): No aggregation is performed. A warning is issued if ties are present, as this can affect the Sen's slope calculation.
+  - `'median'`, `'robust_median'`, `'middle'`: See `seasonal_test` for descriptions. It is recommended to use an aggregation method when tied timestamps are present.
 
 **Output:**
 A named tuple with the following fields:

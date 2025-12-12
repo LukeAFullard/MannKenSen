@@ -509,3 +509,37 @@ def _prepare_data(x, t, hicensor):
         data_filtered.loc[hi_censor_mask, 'value'] = max_lt_censor
 
     return data_filtered, is_datetime
+
+
+def _aggregate_by_group(group, agg_method, is_datetime):
+    """
+    Aggregates a group of data points using the specified method.
+    """
+    if len(group) <= 1:
+        return group
+
+    if agg_method == 'median':
+        if group['censored'].any():
+            import warnings
+            warnings.warn(
+                "The 'median' aggregation method uses a simple heuristic for censored data, "
+                "which may not be statistically robust. Consider using 'robust_median' for "
+                "more accurate censored data aggregation.", UserWarning)
+        median_val = group['value'].median()
+        is_censored = median_val <= group[group['censored']]['value'].max() if group['censored'].any() else False
+
+        new_row = {
+            'value': median_val,
+            't_original': group['t_original'].median() if is_datetime else np.median(group['t_original']),
+            't': np.median(group['t']),
+            'censored': is_censored,
+            'cen_type': group.loc[group['censored'], 'cen_type'].mode()[0] if is_censored else 'not'
+        }
+        return pd.DataFrame([new_row])
+    elif agg_method == 'robust_median':
+        return _aggregate_censored_median(group, is_datetime)
+    elif agg_method == 'middle':
+        t_numeric_group = group['t'].to_numpy()
+        closest_idx = np.argmin(np.abs(t_numeric_group - np.mean(t_numeric_group)))
+        return group.iloc[[closest_idx]]
+    return group

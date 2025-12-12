@@ -4,16 +4,18 @@ and Sen's slope estimator to handle unequally spaced time series data.
 """
 from collections import namedtuple
 import numpy as np
+import pandas as pd
+import warnings
 from collections import namedtuple
 from ._utils import (__mk_score, __variance_s, __z_score,
                    __p_value, __sens_estimator_unequal_spacing,
                    __confidence_intervals, __mk_probability,
                    _mk_score_and_var_censored, _sens_estimator_censored,
-                   _prepare_data)
+                   _prepare_data, _aggregate_by_group)
 from .plotting import plot_trend
 
 
-def original_test(x, t, alpha=0.05, hicensor=False, plot_path=None, lt_mult=0.5, gt_mult=1.1, sens_slope_method='lwp', tau_method='b'):
+def original_test(x, t, alpha=0.05, hicensor=False, plot_path=None, lt_mult=0.5, gt_mult=1.1, sens_slope_method='lwp', tau_method='b', agg_method='none'):
     """
     Mann-Kendall test for unequally spaced time series.
     Input:
@@ -32,6 +34,12 @@ def original_test(x, t, alpha=0.05, hicensor=False, plot_path=None, lt_mult=0.5,
                                  for details.
         tau_method (str): The method for calculating Kendall's Tau ('a' or 'b').
                           Default is 'b', which accounts for ties.
+        agg_method (str): The method for aggregating data at tied timestamps.
+                          'none' (default): No aggregation is performed. A warning
+                                            is issued if ties are present, as this
+                                            can affect the Sen's slope calculation.
+                          'median', 'robust_median', 'middle': See `seasonal_test`
+                                                              for descriptions.
     Output:
         trend, h, p, z, Tau, s, var_s, slope, intercept, lower_ci, upper_ci, C, Cd
 
@@ -53,12 +61,23 @@ def original_test(x, t, alpha=0.05, hicensor=False, plot_path=None, lt_mult=0.5,
     """
     res = namedtuple('Mann_Kendall_Test', ['trend', 'h', 'p', 'z', 'Tau', 's', 'var_s', 'slope', 'intercept', 'lower_ci', 'upper_ci', 'C', 'Cd'])
 
-    data_filtered, _ = _prepare_data(x, t, hicensor)
+    data_filtered, is_datetime = _prepare_data(x, t, hicensor)
 
-    # Check for tied timestamps
+    # Handle tied timestamps
     if len(data_filtered['t']) != len(np.unique(data_filtered['t'])):
-        import warnings
-        warnings.warn("Tied timestamps detected in the time vector `t`. Corresponding data points will be excluded from the Sen's slope calculation.", UserWarning)
+        if agg_method == 'none':
+            warnings.warn(
+                "Tied timestamps detected in the time vector `t`. "
+                "The Sen's slope calculation may be affected. "
+                "Consider using an aggregation method via the `agg_method` parameter.",
+                UserWarning
+            )
+        else:
+            agg_data_list = [
+                _aggregate_by_group(group, agg_method, is_datetime)
+                for _, group in data_filtered.groupby('t')
+            ]
+            data_filtered = pd.concat(agg_data_list, ignore_index=True)
 
     x_filtered = data_filtered['value'].to_numpy()
     t_filtered = data_filtered['t'].to_numpy()
