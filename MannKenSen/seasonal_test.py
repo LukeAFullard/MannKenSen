@@ -11,13 +11,13 @@ import warnings
 from ._utils import (__mk_score, __variance_s, __z_score, __p_value,
                    __sens_estimator_unequal_spacing, __confidence_intervals,
                    __mk_probability, _get_season_func,
-                   _get_cycle_identifier, _mk_score_and_var_censored,
+                   _get_cycle_identifier, _get_time_ranks, _mk_score_and_var_censored,
                    _sens_estimator_censored, _aggregate_censored_median,
                    _prepare_data, _aggregate_by_group)
 from .plotting import plot_trend
 
 
-def seasonal_test(x, t, period=12, alpha=0.05, agg_method='none', season_type='month', hicensor=False, plot_path=None, lt_mult=0.5, gt_mult=1.1, sens_slope_method='lwp', tau_method='b'):
+def seasonal_test(x, t, period=12, alpha=0.05, agg_method='none', season_type='month', hicensor=False, plot_path=None, lt_mult=0.5, gt_mult=1.1, sens_slope_method='lwp', tau_method='b', time_method='absolute'):
     """
     Seasonal Mann-Kendall test for unequally spaced time series.
     Input:
@@ -48,6 +48,13 @@ def seasonal_test(x, t, period=12, alpha=0.05, agg_method='none', season_type='m
                                  for details.
         tau_method (str): The method for calculating Kendall's Tau ('a' or 'b').
                           Default is 'b', which accounts for ties.
+        time_method (str): The method for handling timestamps in the seasonal test.
+                           'absolute' (default): Uses the precise numeric timestamps.
+                                                 This is statistically robust for
+                                                 unequally spaced data.
+                           'rank': Uses cycle-based ranks (1, 2, 3,...) for time,
+                                   matching the LWP-TRENDS R script's methodology.
+                                   This may be useful for result replication.
     Output:
         A namedtuple containing the following fields:
         - trend: The trend of the data ('increasing', 'decreasing', or 'no trend').
@@ -66,6 +73,9 @@ def seasonal_test(x, t, period=12, alpha=0.05, agg_method='none', season_type='m
         - Cd: The confidence that the trend is decreasing.
     """
     res = namedtuple('Seasonal_Mann_Kendall_Test', ['trend', 'h', 'p', 'z', 'Tau', 's', 'var_s', 'slope', 'intercept', 'lower_ci', 'upper_ci', 'C', 'Cd'])
+
+    if time_method not in ['absolute', 'rank']:
+        raise ValueError("`time_method` must be either 'absolute' or 'rank'.")
 
     data_filtered, is_datetime = _prepare_data(x, t, hicensor)
 
@@ -99,37 +109,48 @@ def seasonal_test(x, t, period=12, alpha=0.05, agg_method='none', season_type='m
 
     # --- Trend Analysis ---
     if is_datetime and season_type != 'year':
-        seasons = season_func(pd.to_datetime(data_filtered['t_original']))
+        t_pd = pd.to_datetime(data_filtered['t_original'])
+        seasons = season_func(t_pd)
+        cycles = _get_cycle_identifier(t_pd, season_type)
         season_range = np.unique(seasons)
     elif not is_datetime:
-        t_normalized_season = data_filtered['t'] - data_filtered['t'].min()
-        seasons = (np.floor(t_normalized_season) % period).astype(int)
+        t_normalized = data_filtered['t'] - data_filtered['t'].min()
+        seasons = (np.floor(t_normalized) % period).astype(int)
+        cycles = np.floor(t_normalized / period)
         season_range = range(int(period))
     else: # is_datetime and season_type == 'year'
         seasons = np.ones(len(data_filtered))
+        cycles = _get_cycle_identifier(pd.to_datetime(data_filtered['t_original']), season_type) if is_datetime else np.zeros(len(data_filtered))
         season_range = [1]
 
+
     data_filtered['season'] = seasons
+    data_filtered['cycle'] = cycles
     s, var_s, denom = 0, 0, 0
     all_slopes = []
+
 
     for i in season_range:
         season_mask = data_filtered['season'] == i
         season_data = data_filtered[season_mask]
         season_x = season_data['value'].to_numpy()
-        season_t = season_data['t'].to_numpy()
+        season_t_raw = season_data['t'].to_numpy()
         season_censored = season_data['censored'].to_numpy()
         season_cen_type = season_data['cen_type'].to_numpy()
         n = len(season_x)
 
         if n > 1:
             # DEVELOPER NOTE:
-            # This is a deliberate methodological choice that differs from
-            # the LWP-TRENDS R script. The R script effectively ranks time
-            # based on the year/cycle (e.g., 1, 2, 3,...), standardizing the
-            # time steps. This implementation uses the true numeric timestamps
-            # (`season_t`), which is more statistically precise for unequally
-            # spaced data and aligns with the core purpose of this library.
+            # The 'absolute' time_method (default) uses true numeric timestamps,
+            # which is statistically robust for unequally spaced data.
+            # The 'rank' method uses cycle-based ranks (1, 2, 3,...) for time,
+            # matching the LWP-TRENDS R script's methodology.
+            if time_method == 'rank':
+                season_cycles = season_data['cycle'].to_numpy()
+                season_t = _get_time_ranks(season_t_raw, season_cycles)
+            else: # 'absolute'
+                season_t = season_t_raw
+
             s_season, var_s_season, d_season = _mk_score_and_var_censored(
                 season_x, season_t, season_censored, season_cen_type,
                 tau_method=tau_method

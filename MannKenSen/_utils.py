@@ -76,6 +76,21 @@ def _get_cycle_identifier(dt_series, season_type):
         # Default to year if the concept of a cycle is not obvious
         return dt_accessor.year.to_numpy()
 
+
+def _get_time_ranks(t_values, cycles):
+    """Convert timestamps to cycle-based ranks matching R implementation."""
+    # Create unique cycle identifiers and sort them to ensure rank order
+    unique_cycles = np.unique(cycles)
+    ranks = np.zeros_like(t_values, dtype=float)
+
+    # Assign sequential ranks to each cycle
+    for i, cycle in enumerate(unique_cycles, start=1):
+        mask = cycles == cycle
+        ranks[mask] = i
+
+    return ranks
+
+
 def _rle_lengths(a):
     """
     Calculates the lengths of runs of equal values in an array.
