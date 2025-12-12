@@ -73,6 +73,27 @@ def seasonal_test(x, t, period=12, alpha=0.05, agg_method='none', season_type='m
         - upper_ci: The upper confidence interval of the slope.
         - C: The confidence of the trend direction.
         - Cd: The confidence that the trend is decreasing.
+
+    Statistical Assumptions:
+    ----------------------
+    The Seasonal Mann-Kendall test extends the standard test by accounting for
+    seasonality. It relies on the following assumptions:
+
+    1.  **Independent Seasons**: The trend is analyzed for each season
+        independently, and the results are then combined. This assumes that the
+        data from different seasons are independent.
+    2.  **Serial Independence within Seasons**: The data points within each
+        season are assumed to be serially independent.
+    3.  **Monotonic Trend per Season**: The test assumes a monotonic trend
+        within each season, but the direction and magnitude of the trend can
+        vary between seasons.
+    4.  **Consistent Seasonal Definition**: The definition of seasons (e.g.,
+        'month', 'quarter') must be appropriate for the data and consistent
+        throughout the time series.
+    5.  **Homogeneity of Trend**: The combined test statistic assumes that the
+        trends in each season are homogeneous (i.e., in the same direction).
+        If some seasons have increasing trends while others have decreasing
+        trends, the test may fail to detect a significant overall trend.
     """
     res = namedtuple('Seasonal_Mann_Kendall_Test', ['trend', 'h', 'p', 'z', 'Tau', 's', 'var_s', 'slope', 'intercept', 'lower_ci', 'upper_ci', 'C', 'Cd'])
 
