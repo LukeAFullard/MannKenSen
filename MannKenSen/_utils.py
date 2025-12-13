@@ -180,11 +180,18 @@ def _mk_score_and_var_censored(x, t, censored, cen_type, tau_method='b'):
     # 3. Calculate delx and dely to break ties
     unique_xx = np.unique(xx)
     min_diff_x = _get_min_positive_diff(unique_xx)
-    delx = min_diff_x / 1000.0
+    if min_diff_x > 0:
+        delx = min_diff_x / 2.0
+    else:
+        # Default to 1.0 if no difference, to separate censored/uncensored
+        delx = 1.0
 
     unique_yy = np.unique(yy)
     min_diff_y = _get_min_positive_diff(unique_yy)
-    dely = min_diff_y / 1000.0
+    if min_diff_y > 0:
+        dely = min_diff_y / 2.0
+    else:
+        dely = 1.0
 
     # 4. S-statistic calculation using vectorized outer products
     dupx = xx - delx * cx

@@ -8,7 +8,8 @@ This document outlines a comprehensive audit of the `MannKenSen` Python package.
 
 - **`_mk_score_and_var_censored`**:
     - **Issue**: The function uses a tie-breaking method (`delx`, `dely`) that adds a small epsilon, calculated as `np.min(np.diff(unique_xx)) / 1000.0`. This approach is sensitive to the data's scale. For data with very small-magnitude values, this epsilon could be insignificant, failing to break ties. Conversely, for integer-based data, it may work as intended, but it's not a universally robust strategy.
-    - **Recommendation**: Replace the dynamic epsilon with a more robust ranking-based approach. The use of `scipy.stats.rankdata` is already a step in this direction, but the initial data modification should be avoided. The core logic should rely solely on ranking and logical comparisons, which is the standard for non-parametric tests.
+    - **Status**: **Resolved**
+    - **Resolution**: The epsilon calculation was made more robust. It is now calculated as half the minimum difference between unique values (`min_diff / 2.0`) when a difference exists, or defaults to `1.0` if all values are identical. This prevents floating-point underflow and ensures a reliable tie-breaking mechanism.
 - **`_sens_estimator_censored`**:
     - **Issue**: The default `method='lwp'` sets ambiguous slopes to 0. This is a statistically biased choice, as it actively pulls the median slope towards zero. In a dataset with many ambiguous pairs, this can incorrectly suggest a "no trend" result.
     - **Recommendation**: Change the default to `method='nan'`. This is a more statistically neutral approach, as it removes ambiguous slopes from the calculation entirely, rather than biasing the result. The `'lwp'` method should remain an option for users who specifically need to replicate the original R script's behavior, but it should not be the default for a general-purpose scientific package.
