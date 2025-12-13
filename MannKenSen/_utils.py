@@ -104,6 +104,16 @@ def _rle_lengths(a):
     return np.diff(np.append(-1, i))
 
 
+def _get_min_positive_diff(arr):
+    """Calculates the minimum positive difference between unique sorted values."""
+    # Ensure array is unique and sorted, which is a prerequisite.
+    if len(arr) <= 1:
+        return 0.0
+    diffs = np.diff(arr)
+    pos_diffs = diffs[diffs > 0]
+    return np.min(pos_diffs) if len(pos_diffs) > 0 else 0.0
+
+
 def _mk_score_and_var_censored(x, t, censored, cen_type, tau_method='b'):
     """
     Calculates the Mann-Kendall S statistic and its variance for censored data.
@@ -169,9 +179,12 @@ def _mk_score_and_var_censored(x, t, censored, cen_type, tau_method='b'):
 
     # 3. Calculate delx and dely to break ties
     unique_xx = np.unique(xx)
-    delx = np.min(np.diff(unique_xx)) / 1000.0 if len(unique_xx) > 1 else 0.0
+    min_diff_x = _get_min_positive_diff(unique_xx)
+    delx = min_diff_x / 1000.0
+
     unique_yy = np.unique(yy)
-    dely = np.min(np.diff(unique_yy)) / 1000.0 if len(unique_yy) > 1 else 0.0
+    min_diff_y = _get_min_positive_diff(unique_yy)
+    dely = min_diff_y / 1000.0
 
     # 4. S-statistic calculation using vectorized outer products
     dupx = xx - delx * cx
