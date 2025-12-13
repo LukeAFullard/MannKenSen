@@ -15,7 +15,7 @@ from ._utils import (__mk_score, __variance_s, _z_score,
 from .plotting import plot_trend
 
 
-def original_test(x, t, alpha=0.05, hicensor=False, plot_path=None, lt_mult=0.5, gt_mult=1.1, sens_slope_method='lwp', tau_method='b', agg_method='none', min_size=10):
+def original_test(x, t, alpha=0.05, hicensor=False, plot_path=None, lt_mult=0.5, gt_mult=1.1, sens_slope_method='nan', tau_method='b', agg_method='none', min_size=10):
     """
     Mann-Kendall test for unequally spaced time series.
     Input:

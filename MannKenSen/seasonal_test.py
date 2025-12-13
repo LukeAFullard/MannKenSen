@@ -17,7 +17,7 @@ from ._utils import (__mk_score, __variance_s, _z_score, __p_value,
 from .plotting import plot_trend
 
 
-def seasonal_test(x, t, period=12, alpha=0.05, agg_method='none', season_type='month', hicensor=False, plot_path=None, lt_mult=0.5, gt_mult=1.1, sens_slope_method='lwp', tau_method='b', time_method='absolute', min_size_per_season=5):
+def seasonal_test(x, t, period=12, alpha=0.05, agg_method='none', season_type='month', hicensor=False, plot_path=None, lt_mult=0.5, gt_mult=1.1, sens_slope_method='nan', tau_method='b', time_method='absolute', min_size_per_season=5):
     """
     Seasonal Mann-Kendall test for unequally spaced time series.
     Input:
@@ -35,7 +35,10 @@ def seasonal_test(x, t, period=12, alpha=0.05, agg_method='none', season_type='m
                     'median': (LWP method) uses the median of values and times.
                               For censored data, this is a simple heuristic.
                     'robust_median': uses a more statistically robust median for
-                                     censored data.
+                                     censored data. Note: The logic to determine
+                                     if the result is censored is a heuristic
+                                     from the LWP-TRENDS R script and may not be
+                                     universally robust.
                     'middle': uses the observation closest to the middle of the
                               time period.
         season_type: For datetime inputs, specifies the type of seasonality.

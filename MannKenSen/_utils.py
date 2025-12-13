@@ -180,11 +180,18 @@ def _mk_score_and_var_censored(x, t, censored, cen_type, tau_method='b'):
     # 3. Calculate delx and dely to break ties
     unique_xx = np.unique(xx)
     min_diff_x = _get_min_positive_diff(unique_xx)
-    delx = min_diff_x / 1000.0
+    if min_diff_x > 0:
+        delx = min_diff_x / 2.0
+    else:
+        # Default to 1.0 if no difference, to separate censored/uncensored
+        delx = 1.0
 
     unique_yy = np.unique(yy)
     min_diff_y = _get_min_positive_diff(unique_yy)
-    dely = min_diff_y / 1000.0
+    if min_diff_y > 0:
+        dely = min_diff_y / 2.0
+    else:
+        dely = 1.0
 
     # 4. S-statistic calculation using vectorized outer products
     dupx = xx - delx * cx
@@ -413,7 +420,7 @@ def __sens_estimator_unequal_spacing(x, t):
     return x_diff[valid_mask] / t_diff[valid_mask]
 
 
-def _sens_estimator_censored(x, t, cen_type, lt_mult=0.5, gt_mult=1.1, method='lwp'):
+def _sens_estimator_censored(x, t, cen_type, lt_mult=0.5, gt_mult=1.1, method='nan'):
     """
     Computes Sen's slope for censored, unequally spaced data.
 
@@ -523,12 +530,20 @@ def __confidence_intervals(slopes, var_s, alpha):
     M1 = (n - C) / 2
     M2 = (n + C) / 2
 
+    # Convert to 0-based integer indices
+    # Round to nearest integer for rank
+    lower_idx = int(np.round(M1 - 1))
+    upper_idx = int(np.round(M2 - 1))
+
     sorted_slopes = np.sort(valid_slopes)
 
-    # Interpolate to find the values at the fractional ranks
-    ranks = np.arange(1, n + 1)
-    lower_ci = np.interp(M1, ranks, sorted_slopes)
-    upper_ci = np.interp(M2, ranks, sorted_slopes)
+    # Ensure indices are within bounds
+    if 0 <= lower_idx < n and 0 <= upper_idx < n:
+        lower_ci = sorted_slopes[lower_idx]
+        upper_ci = sorted_slopes[upper_idx]
+    else:
+        lower_ci, upper_ci = np.nan, np.nan
+
 
     return lower_ci, upper_ci
 
@@ -537,6 +552,12 @@ def _aggregate_censored_median(group, is_datetime):
     """
     Computes a robust median for a group of observations which may contain
     censored data, following the LWP-TRENDS R script logic.
+
+    .. note::
+        The logic for determining if the aggregated median is censored
+        (i.e., `median_val <= max_censored_value`) is a heuristic method.
+        It is designed to replicate the behavior of the LWP-TRENDS R script
+        and may not be statistically robust in all scenarios.
     """
     n = len(group)
     if n == 0:

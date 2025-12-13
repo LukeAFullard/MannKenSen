@@ -8,19 +8,23 @@ This document outlines a comprehensive audit of the `MannKenSen` Python package.
 
 - **`_mk_score_and_var_censored`**:
     - **Issue**: The function uses a tie-breaking method (`delx`, `dely`) that adds a small epsilon, calculated as `np.min(np.diff(unique_xx)) / 1000.0`. This approach is sensitive to the data's scale. For data with very small-magnitude values, this epsilon could be insignificant, failing to break ties. Conversely, for integer-based data, it may work as intended, but it's not a universally robust strategy.
-    - **Recommendation**: Replace the dynamic epsilon with a more robust ranking-based approach. The use of `scipy.stats.rankdata` is already a step in this direction, but the initial data modification should be avoided. The core logic should rely solely on ranking and logical comparisons, which is the standard for non-parametric tests.
+    - **Status**: **Resolved**
+    - **Resolution**: The epsilon calculation was made more robust. It is now calculated as half the minimum difference between unique values (`min_diff / 2.0`) when a difference exists, or defaults to `1.0` if all values are identical. This prevents floating-point underflow and ensures a reliable tie-breaking mechanism.
 - **`_sens_estimator_censored`**:
     - **Issue**: The default `method='lwp'` sets ambiguous slopes to 0. This is a statistically biased choice, as it actively pulls the median slope towards zero. In a dataset with many ambiguous pairs, this can incorrectly suggest a "no trend" result.
-    - **Recommendation**: Change the default to `method='nan'`. This is a more statistically neutral approach, as it removes ambiguous slopes from the calculation entirely, rather than biasing the result. The `'lwp'` method should remain an option for users who specifically need to replicate the original R script's behavior, but it should not be the default for a general-purpose scientific package.
+    - **Status**: **Resolved**
+    - **Resolution**: The default method was changed from `'lwp'` to `'nan'`. This makes the function's default behavior more statistically neutral by excluding ambiguous slopes from the calculation, rather than biasing the result towards zero. The user-facing functions `original_test` and `seasonal_test` were also updated to use this new, more robust default. The `'lwp'` method remains available as a non-default option.
 - **`_aggregate_censored_median`**:
     - **Issue**: The logic for determining if a median is censored (`is_censored = median_val <= max_censored`) is a direct translation of the LWP-TRENDS heuristic. While useful for replication, it's not a statistically derived method and may not be robust, especially for complex data distributions.
-    - **Recommendation**: Add a clear note in the docstring for this function and the user-facing `seasonal_test` (when `agg_method='robust_median'`) explaining that this is a heuristic method intended to replicate the LWP-TRENDS R script and may not be suitable for all applications.
+    - **Status**: **Resolved**
+    - **Resolution**: Added a note to the docstrings of `_aggregate_censored_median` and `seasonal_test` to clarify that the `'robust_median'` aggregation method uses a heuristic for determining censored medians, which is intended to replicate the LWP-TRENDS R script's behavior and may not be universally robust.
 
 ### 1.2 Confidence Intervals
 
 - **`__confidence_intervals`**:
     - **Issue**: The function uses `np.interp` to find the confidence intervals. This linear interpolation assumes the slopes are uniformly distributed between ranks, which is not guaranteed. For small or heavily tied datasets, this can lead to inaccuracies. The standard, non-parametric method involves selecting the k-th smallest and (N-k+1)-th smallest slopes from the sorted list of slopes, where k is determined by the Z-statistic and variance.
-    - **Recommendation**: Modify the function to use direct indexing of the sorted slopes. This involves calculating the integer ranks `M1` and `M2`, rounding them to the nearest integer, and using those as 0-based indices to select the correct slope values from the sorted array. This avoids the assumption of linearity made by interpolation.
+    - **Status**: **Resolved**
+    - **Resolution**: The function was modified to use direct indexing of the sorted slopes array instead of interpolation. It now calculates the integer ranks for the upper and lower confidence limits, rounds them to the nearest integer, and selects the slope at that index. This is a more statistically robust, non-parametric method.
 
 ## 2. Code Structure & Readability
 
