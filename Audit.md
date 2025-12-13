@@ -16,7 +16,8 @@ This document outlines a comprehensive audit of the `MannKenSen` Python package.
     - **Resolution**: The default method was changed from `'lwp'` to `'nan'`. This makes the function's default behavior more statistically neutral by excluding ambiguous slopes from the calculation, rather than biasing the result towards zero. The user-facing functions `original_test` and `seasonal_test` were also updated to use this new, more robust default. The `'lwp'` method remains available as a non-default option.
 - **`_aggregate_censored_median`**:
     - **Issue**: The logic for determining if a median is censored (`is_censored = median_val <= max_censored`) is a direct translation of the LWP-TRENDS heuristic. While useful for replication, it's not a statistically derived method and may not be robust, especially for complex data distributions.
-    - **Recommendation**: Add a clear note in the docstring for this function and the user-facing `seasonal_test` (when `agg_method='robust_median'`) explaining that this is a heuristic method intended to replicate the LWP-TRENDS R script and may not be suitable for all applications.
+    - **Status**: **Resolved**
+    - **Resolution**: Added a note to the docstrings of `_aggregate_censored_median` and `seasonal_test` to clarify that the `'robust_median'` aggregation method uses a heuristic for determining censored medians, which is intended to replicate the LWP-TRENDS R script's behavior and may not be universally robust.
 
 ### 1.2 Confidence Intervals
 

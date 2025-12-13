@@ -35,7 +35,10 @@ def seasonal_test(x, t, period=12, alpha=0.05, agg_method='none', season_type='m
                     'median': (LWP method) uses the median of values and times.
                               For censored data, this is a simple heuristic.
                     'robust_median': uses a more statistically robust median for
-                                     censored data.
+                                     censored data. Note: The logic to determine
+                                     if the result is censored is a heuristic
+                                     from the LWP-TRENDS R script and may not be
+                                     universally robust.
                     'middle': uses the observation closest to the middle of the
                               time period.
         season_type: For datetime inputs, specifies the type of seasonality.
