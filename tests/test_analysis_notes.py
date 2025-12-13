@@ -68,7 +68,7 @@ def test_get_sens_slope_analysis_note_influenced_by_left_censored():
     x_raw = ['<1', 5, 10, 12]
     t = np.arange(len(x_raw))
     data = prepare_censored_data(x_raw)
-    slopes = _sens_estimator_censored(data['value'].values, t, data['cen_type'].values)
+    slopes = _sens_estimator_censored(data['value'].values, t, data['cen_type'].values, method='lwp')
     note = get_sens_slope_analysis_note(slopes, t, data['cen_type'].values)
     assert note == "WARNING: Sen slope influenced by left-censored values"
 
@@ -76,7 +76,7 @@ def test_get_sens_slope_analysis_note_influenced_by_right_censored():
     x_raw = [1, 5, 2, '>10']
     t = np.arange(len(x_raw))
     data = prepare_censored_data(x_raw)
-    slopes = _sens_estimator_censored(data['value'].values, t, data['cen_type'].values)
+    slopes = _sens_estimator_censored(data['value'].values, t, data['cen_type'].values, method='lwp')
     note = get_sens_slope_analysis_note(slopes, t, data['cen_type'].values)
     assert note == "WARNING: Sen slope influenced by right-censored values"
 
@@ -84,7 +84,7 @@ def test_get_sens_slope_analysis_note_influenced_by_both_censored():
     x_raw = ['<1', 5, 2, '>10']
     t = np.arange(len(x_raw))
     data = prepare_censored_data(x_raw)
-    slopes = _sens_estimator_censored(data['value'].values, t, data['cen_type'].values)
+    slopes = _sens_estimator_censored(data['value'].values, t, data['cen_type'].values, method='lwp')
     note = get_sens_slope_analysis_note(slopes, t, data['cen_type'].values)
     assert note == "WARNING: Sen slope influenced by left- and right-censored values"
 
@@ -92,7 +92,7 @@ def test_get_sens_slope_analysis_note_based_on_two_censored():
     x_raw = ['<1', '<2', '>3', '>4']
     t = np.arange(len(x_raw))
     data = prepare_censored_data(x_raw)
-    slopes = _sens_estimator_censored(data['value'].values, t, data['cen_type'].values)
+    slopes = _sens_estimator_censored(data['value'].values, t, data['cen_type'].values, method='lwp')
     note = get_sens_slope_analysis_note(slopes, t, data['cen_type'].values)
     assert note == "WARNING: Sen slope based on two censored values"
 
@@ -100,7 +100,7 @@ def test_get_sens_slope_analysis_note_tied_non_censored():
     x_raw = [1, 2, 1, 2, 1]
     t = np.arange(len(x_raw))
     data = prepare_censored_data(x_raw)
-    slopes = _sens_estimator_censored(data['value'].values, t, data['cen_type'].values)
+    slopes = _sens_estimator_censored(data['value'].values, t, data['cen_type'].values, method='lwp')
     note = get_sens_slope_analysis_note(slopes, t, data['cen_type'].values)
     assert note == "WARNING: Sen slope based on tied non-censored values"
 

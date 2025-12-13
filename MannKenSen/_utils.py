@@ -420,7 +420,7 @@ def __sens_estimator_unequal_spacing(x, t):
     return x_diff[valid_mask] / t_diff[valid_mask]
 
 
-def _sens_estimator_censored(x, t, cen_type, lt_mult=0.5, gt_mult=1.1, method='lwp'):
+def _sens_estimator_censored(x, t, cen_type, lt_mult=0.5, gt_mult=1.1, method='nan'):
     """
     Computes Sen's slope for censored, unequally spaced data.
 
