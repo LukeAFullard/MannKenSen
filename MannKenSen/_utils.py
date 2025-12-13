@@ -530,12 +530,20 @@ def __confidence_intervals(slopes, var_s, alpha):
     M1 = (n - C) / 2
     M2 = (n + C) / 2
 
+    # Convert to 0-based integer indices
+    # Round to nearest integer for rank
+    lower_idx = int(np.round(M1 - 1))
+    upper_idx = int(np.round(M2 - 1))
+
     sorted_slopes = np.sort(valid_slopes)
 
-    # Interpolate to find the values at the fractional ranks
-    ranks = np.arange(1, n + 1)
-    lower_ci = np.interp(M1, ranks, sorted_slopes)
-    upper_ci = np.interp(M2, ranks, sorted_slopes)
+    # Ensure indices are within bounds
+    if 0 <= lower_idx < n and 0 <= upper_idx < n:
+        lower_ci = sorted_slopes[lower_idx]
+        upper_ci = sorted_slopes[upper_idx]
+    else:
+        lower_ci, upper_ci = np.nan, np.nan
+
 
     return lower_ci, upper_ci
 

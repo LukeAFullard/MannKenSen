@@ -23,7 +23,8 @@ This document outlines a comprehensive audit of the `MannKenSen` Python package.
 
 - **`__confidence_intervals`**:
     - **Issue**: The function uses `np.interp` to find the confidence intervals. This linear interpolation assumes the slopes are uniformly distributed between ranks, which is not guaranteed. For small or heavily tied datasets, this can lead to inaccuracies. The standard, non-parametric method involves selecting the k-th smallest and (N-k+1)-th smallest slopes from the sorted list of slopes, where k is determined by the Z-statistic and variance.
-    - **Recommendation**: Modify the function to use direct indexing of the sorted slopes. This involves calculating the integer ranks `M1` and `M2`, rounding them to the nearest integer, and using those as 0-based indices to select the correct slope values from the sorted array. This avoids the assumption of linearity made by interpolation.
+    - **Status**: **Resolved**
+    - **Resolution**: The function was modified to use direct indexing of the sorted slopes array instead of interpolation. It now calculates the integer ranks for the upper and lower confidence limits, rounds them to the nearest integer, and selects the slope at that index. This is a more statistically robust, non-parametric method.
 
 ## 2. Code Structure & Readability
 
