@@ -60,7 +60,8 @@ This document outlines a comprehensive audit of the `MannKenSen` Python package.
         - The various `agg_method` options in `seasonal_test` are not explicitly tested.
         - Edge cases in `prepare_censored_data` (e.g., malformed strings like `'<>5'`, strings with extra spaces) are not tested.
         - Behavior with empty inputs or inputs containing only `np.nan`.
-    - **Recommendation**: Add specific unit tests to cover these scenarios to ensure the package is robust and reliable.
+    - **Status**: **Resolved**
+    - **Resolution**: Added specific unit tests to cover all of the identified scenarios. This includes new tests for the `hicensor` rule, a dedicated test file for aggregation methods, and tests for various edge cases in data preparation (including malformed strings, empty inputs, and all-NaN inputs).
 - **Statistical Validation**:
     - **Issue**: There are no integration tests that validate the statistical output against a known, trusted implementation. While the user has instructed not to use `rpy2` for this, it represents a major gap in ensuring the scientific validity of the package's results.
     - **Recommendation**: As a temporary measure, create static test cases using data and results generated *manually* from the LWP-TRENDS R script. These "snapshot" tests would provide a baseline for correctness, even without a direct R dependency. This should be noted as a limitation.

@@ -28,17 +28,21 @@ def original_test(x, t, alpha=0.05, hicensor=False, plot_path=None, lt_mult=0.5,
                                    is saved to this file path.
         lt_mult (float): The multiplier for left-censored data (default 0.5).
         gt_mult (float): The multiplier for right-censored data (default 1.1).
-        sens_slope_method (str): The method to use for handling ambiguous slopes
-                                 in censored data. See `_sens_estimator_censored`
-                                 for details.
+        sens_slope_method (str): The method for handling ambiguous slopes in censored data.
+            - 'nan' (default): Sets ambiguous slopes (e.g., between two left-censored
+                               values) to `np.nan`, effectively removing them from the
+                               median slope calculation. This is a statistically neutral
+                               approach.
+            - 'lwp': Sets ambiguous slopes to 0, mimicking the LWP-TRENDS R script.
+                     This may bias the slope towards zero.
         tau_method (str): The method for calculating Kendall's Tau ('a' or 'b').
                           Default is 'b', which accounts for ties.
         agg_method (str): The method for aggregating data at tied timestamps.
-                          'none' (default): No aggregation is performed. A warning
-                                            is issued if ties are present, as this
-                                            can affect the Sen's slope calculation.
-                          'median', 'robust_median', 'middle': See `seasonal_test`
-                                                              for descriptions.
+            - 'none' (default): No aggregation. A warning is issued if ties are present.
+            - 'median': Use the median of values and times. For censored data, this
+                        is a simple heuristic.
+            - 'robust_median': A more statistically robust median for censored data.
+            - 'middle': Use the observation closest to the middle of the time period.
         min_size (int): Minimum sample size. Warnings issued if n < min_size.
                        Set to None to disable check.
     Output:

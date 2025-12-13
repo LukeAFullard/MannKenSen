@@ -46,9 +46,13 @@ def seasonal_test(x, t, period=12, alpha=0.05, agg_method='none', season_type='m
                      'day_of_year', 'minute', 'second'.
         lt_mult (float): The multiplier for left-censored data (default 0.5).
         gt_mult (float): The multiplier for right-censored data (default 1.1).
-        sens_slope_method (str): The method to use for handling ambiguous slopes
-                                 in censored data. See `_sens_estimator_censored`
-                                 for details.
+        sens_slope_method (str): The method for handling ambiguous slopes in censored data.
+            - 'nan' (default): Sets ambiguous slopes (e.g., between two left-censored
+                               values) to `np.nan`, effectively removing them from the
+                               median slope calculation. This is a statistically neutral
+                               approach.
+            - 'lwp': Sets ambiguous slopes to 0, mimicking the LWP-TRENDS R script.
+                     This may bias the slope towards zero.
         tau_method (str): The method for calculating Kendall's Tau ('a' or 'b').
                           Default is 'b', which accounts for ties.
         time_method (str): The method for handling timestamps in the seasonal test.
